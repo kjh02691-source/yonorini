@@ -1,0 +1,5 @@
+구역,이름,설명,주소,공개
+실험실,옴의 법칙 실험실,전류·전압 값을 입력하고 그래프 그리기,programs/ohm-lab.html,Y
+실험실,트랜지스터 가상 실험실,"스위치 작용, 전류 증폭률, 스피커 증폭 회로",programs/transistor-lab.html,Y
+도구,한글 도장 생성기,이름을 넣으면 도장 이미지를 만들어 줘요,programs/seal.html,Y
+도구,수강신청 검증시스템,내 수강신청이 졸업 요건에 맞는지 확인하기,programs/course-check.html,Y

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <!-- ① head: 화면에 보이지 않는 '설정' 부분 -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>사이트 이름</title>
+  <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* ② style: 색·글꼴·배치를 정하는 '디자인' 부분 */
+
+    /* 색은 여기 한 곳에서만 바꾸면 사이트 전체가 바뀝니다 */
+    :root {
+      --paper: #F7F9FC;      /* 모눈종이 바탕 */
+      --grid: #DCE6F2;       /* 모눈 선 */
+      --ink: #1F3A5F;        /* 잉크(글자) */
+      --soft: #5A6F88;       /* 연한 글자 */
+      --marker: #FFE45C;     /* 형광펜 */
+      --line: #B9C9DC;       /* 테두리 */
+      color-scheme: light;
+    }
+    /* 다크 모드일 때는 '칠판'으로 바뀝니다 */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper: #1E2B26; --grid: #2A3A33; --ink: #EEF2EC;
+        --soft: #A9B8AF; --marker: #E8C94A; --line: #3E5248;
+        color-scheme: dark;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans KR", "Malgun Gothic", sans-serif;
+      color: var(--ink);
+      background-color: var(--paper);
+      /* 모눈종이 무늬 */
+      background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 24px 24px;
+      line-height: 1.7;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+
+    /* 맨 위 제목 */
+    header { padding: 56px 0 24px; }
+    h1 {
+      font-family: "Do Hyeon", sans-serif;
+      font-weight: 400;
+      font-size: clamp(2.4rem, 8vw, 3.6rem);
+      line-height: 1.1;
+      margin: 0 0 8px;
+    }
+    h1 span { background: linear-gradient(transparent 60%, var(--marker) 60%); }
+    header p { margin: 0; color: var(--soft); }
+
+    /* 메뉴 */
+    nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 8px; }
+    nav a {
+      color: var(--ink); text-decoration: none;
+      border: 1.5px solid var(--ink); border-radius: 999px;
+      padding: 4px 14px; background: var(--paper);
+    }
+    nav a:hover, nav a:focus-visible { background: var(--marker); color: #1F3A5F; outline: none; }
+
+    /* 각 구역 */
+    section { padding: 32px 0; border-top: 2px dashed var(--line); }
+    h2 { font-family: "Do Hyeon", sans-serif; font-weight: 400; font-size: 1.8rem; margin: 0 0 4px; }
+    section > p { margin: 0 0 16px; color: var(--soft); }
+
+    /* 프로그램 한 줄 */
+    .item {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 14px 16px; margin-bottom: 10px;
+      background: var(--paper); border: 1.5px solid var(--line); border-radius: 6px;
+    }
+    .item strong { display: block; }
+    .item small { color: var(--soft); }
+    .btn {
+      flex-shrink: 0; text-decoration: none; font-weight: 600;
+      color: #1F3A5F; background: var(--marker);
+      padding: 8px 16px; border-radius: 6px;
+    }
+    .btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+    .btn.off { background: var(--grid); color: var(--soft); pointer-events: none; }
+
+    .msg { color: var(--soft); margin: 0; }
+
+    footer { padding: 32px 0 48px; color: var(--soft); font-size: .9rem; }
+  </style>
+</head>
+
+<body>
+  <!-- ③ body: 실제로 화면에 보이는 '내용' 부분 -->
+  <div class="wrap">
+
+    <header>
+      <!-- 사이트 이름은 여기와 맨 위 <title> 두 곳을 바꾸면 됩니다 -->
+      <h1><span>사이트 이름</span></h1>
+      <p>수업에서 쓰는 가상 실험과 도구를 한곳에 모았어요. 누르면 바로 실행됩니다.</p>
+      <nav>
+        <a href="#lab">가상 실험실</a>
+        <a href="#tools">도구</a>
+        <a href="#files">자료실</a>
+        <a href="#teacher">선생님 도구 🔒</a>
+      </nav>
+    </header>
+
+    <!-- 가상 실험실: 스프레드시트에서 '구역'이 "실험실"인 줄이 여기에 그려집니다 -->
+    <section id="lab">
+      <h2>🔬 가상 실험실</h2>
+      <p>실험값을 넣고 그래프로 확인해 보세요.</p>
+      <div id="list-lab"><p class="msg">목록을 불러오는 중…</p></div>
+    </section>
+
+    <!-- 도구: '구역'이 "도구"인 줄이 여기에 그려집니다 -->
+    <section id="tools">
+      <h2>🛠 도구</h2>
+      <p>필요할 때 꺼내 쓰는 작은 프로그램이에요.</p>
+      <div id="list-tools"><p class="msg">목록을 불러오는 중…</p></div>
+    </section>
+
+    <!-- 자료실 (6단계에서 연결) -->
+    <section id="files">
+      <h2>📂 자료실</h2>
+      <p>학습 자료를 내려받고, 과제를 제출하는 곳이에요.</p>
+
+      <div class="item">
+        <div><strong>자료 내려받기</strong><small>학습지, 수업 PPT</small></div>
+        <span class="btn off">준비 중</span>
+      </div>
+      <div class="item">
+        <div><strong>과제 제출</strong><small>실험 보고서 올리기</small></div>
+        <span class="btn off">준비 중</span>
+      </div>
+    </section>
+
+    <!-- 선생님 도구 (5단계에서 비밀번호 추가) -->
+    <section id="teacher">
+      <h2>👨‍🏫 선생님 도구</h2>
+      <p>내려받아 PC에서 실행하는 프로그램이에요.</p>
+      <div class="item">
+        <div><strong>비밀번호가 필요해요</strong><small>5단계에서 잠금 기능을 붙입니다</small></div>
+        <span class="btn off">잠김</span>
+      </div>
+    </section>
+
+    <footer>주성고등학교 과학 수업용</footer>
+  </div>
+
+  <script>
+    // ④ script: 스프레드시트를 읽어서 버튼을 자동으로 만드는 '동작' 부분
+
+    // ▼ 여기에 '웹에 게시'로 받은 CSV 주소를 따옴표 안에 붙여 넣으세요
+    const SHEET_URL = "여기에_CSV_주소_붙여넣기";
+
+    // 시트의 '구역' 칸 글자 → 화면의 어느 상자에 넣을지
+    const AREAS = { "실험실": "list-lab", "도구": "list-tools" };
+
+    // CSV 글자를 표(줄과 칸)로 나누기. 설명에 쉼표가 있어도 깨지지 않게 처리합니다
+    function parseCSV(text) {
+      const rows = []; let row = [], cell = "", quoted = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (quoted) {
+          if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+          else if (c === '"') quoted = false;
+          else cell += c;
+        } else if (c === '"') quoted = true;
+        else if (c === ",") { row.push(cell); cell = ""; }
+        else if (c === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+        else if (c !== "\r") cell += c;
+      }
+      if (cell || row.length) { row.push(cell); rows.push(row); }
+      return rows;
+    }
+
+    // 글자 안의 < > 같은 기호가 코드로 실행되지 않게 막기
+    function safe(t) {
+      return String(t ?? "").replace(/[&<>"']/g, ch =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+    }
+
+    function showMessage(text) {
+      Object.values(AREAS).forEach(id =>
+        document.getElementById(id).innerHTML = `<p class="msg">${text}</p>`);
+    }
+
+    async function loadPrograms() {
+      if (SHEET_URL.startsWith("여기에")) {
+        showMessage("아직 스프레드시트 주소가 연결되지 않았어요. index.html의 SHEET_URL을 채워 주세요.");
+        return;
+      }
+      try {
+        const res = await fetch(SHEET_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error(res.status);
+        const rows = parseCSV(await res.text()).slice(1); // 첫 줄(제목 줄)은 건너뜀
+
+        const html = {};
+        Object.values(AREAS).forEach(id => html[id] = "");
+
+        // 시트 칸 순서: 구역 | 이름 | 설명 | 주소 | 공개
+        rows.forEach(([area, name, desc, url, open]) => {
+          const box = AREAS[(area || "").trim()];
+          if (!box || !name || (open || "").trim().toUpperCase() !== "Y") return;
+          html[box] += `
+            <div class="item">
+              <div><strong>${safe(name)}</strong><small>${safe(desc)}</small></div>
+              <a class="btn" href="${safe(url)}">실행하기</a>
+            </div>`;
+        });
+
+        Object.entries(html).forEach(([id, h]) =>
+          document.getElementById(id).innerHTML = h || `<p class="msg">아직 등록된 프로그램이 없어요.</p>`);
+      } catch (e) {
+        showMessage("목록을 불러오지 못했어요. 인터넷 연결과 스프레드시트 '웹에 게시' 설정을 확인해 주세요.");
+      }
+    }
+
+    loadPrograms();
+  </script>
+</body>
+</html>
