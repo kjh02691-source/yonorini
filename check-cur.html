@@ -1,0 +1,2738 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주성고등학교 고교학점제 수강신청 검증 & Gemini AI 진로 컨설팅</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #fafafa; }
+        .tab-btn { color: #86868b; font-weight: 500; }
+        .tab-btn.active { border-bottom: 2px solid #1d1d1f; color: #1d1d1f; font-weight: 600; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .status-box { transition: all .2s; }
+        .btn-pill { border-radius: 980px; }
+        .ss-grade-btn { background: #fff; color: #475569; border-color: #e2e8f0; }
+        .ss-grade-btn.active { background: #0f172a; color: #fff; border-color: #0f172a; }
+        .ss-semester-btn { background: #f8fafc; color: #64748b; border-color: #e2e8f0; }
+        .ss-semester-btn.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header Navigation -->
+    <header class="bg-white/90 backdrop-blur-md text-slate-900 sticky top-0 z-50 border-b border-slate-100">
+        <div class="max-w-7xl mx-auto px-6 py-3.5 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center space-x-2.5">
+                <div class="bg-slate-900 w-8 h-8 rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-graduation-cap text-sm text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-[15px] font-semibold tracking-tight leading-tight">주성고 고교학점제 과목선택 검증</h1>
+                    <p class="text-[11px] text-slate-400 leading-tight">편성표 자동 파싱 · Gemini AI 진로 피드백</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+                <i class="fa-solid fa-robot text-slate-400 text-xs"></i>
+                <span class="text-[11px] text-slate-500 font-medium">Gemini API 키</span>
+                <input type="password" id="geminiApiKey" placeholder="선택사항"
+                       class="bg-transparent text-[11px] text-slate-700 px-1 py-0.5 focus:outline-none w-28 placeholder:text-slate-300">
+            </div>
+        </div>
+
+        <div class="border-t border-slate-100 px-6">
+            <div class="max-w-7xl mx-auto flex space-x-8 overflow-x-auto text-[13px]">
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn py-3 px-0.5 active flex items-center space-x-1.5">
+                    <i class="fa-solid fa-chart-pie text-[11px]"></i><span>대시보드</span>
+                </button>
+                <button onclick="switchTab('curriculum')" id="tab-curriculum" class="tab-btn py-3 px-0.5 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-file-excel text-[11px]"></i><span>교육과정 편성표</span>
+                </button>
+                <button onclick="switchTab('students')" id="tab-students" class="tab-btn py-3 px-0.5 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-users-gear text-[11px]"></i><span>수강신청 데이터</span>
+                </button>
+                <button onclick="switchTab('single-student')" id="tab-single-student" class="tab-btn py-3 px-0.5 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-user-pen text-[11px]"></i><span>학생별 교과 신청</span>
+                </button>
+                <button onclick="switchTab('ai-eval')" id="tab-ai-eval" class="tab-btn py-3 px-0.5 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-wand-magic-sparkles text-[11px]"></i><span>AI 진로 평가</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-8 flex-grow w-full">
+
+        <!-- TAB 1: 대시보드 -->
+        <section id="section-dashboard" class="space-y-6">
+            <div class="flex flex-wrap items-end justify-between gap-2">
+                <div>
+                    <h2 class="text-[28px] font-semibold tracking-tight text-slate-900">종합 검증 대시보드</h2>
+                    <p class="text-sm text-slate-400 mt-1">과목선택 검증 결과를 한눈에 확인하세요.</p>
+                </div>
+                <div id="saveIndicator" class="text-[11px] text-slate-400 pb-1"></div>
+            </div>
+
+            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="text-[13px] text-slate-500">
+                    <i class="fa-solid fa-box-archive text-slate-400 mr-1.5"></i>이 브라우저 저장은 새로고침에서만 유지됩니다. 다른 컴퓨터로 옮기거나 만약을 대비해 <strong class="text-slate-700">백업 파일</strong>로 내려받아 두세요.
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="file" id="backupFileInput" accept=".json" class="hidden" onchange="importBackupFile(event)">
+                    <button onclick="document.getElementById('backupFileInput').click()" class="btn-pill bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs px-4 py-2 font-medium transition">
+                        <i class="fa-solid fa-upload mr-1.5"></i>백업 불러오기
+                    </button>
+                    <button onclick="exportBackupFile()" class="btn-pill bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs px-4 py-2 font-medium transition">
+                        <i class="fa-solid fa-box-archive mr-1.5"></i>백업 파일로 저장
+                    </button>
+                </div>
+            </div>
+            <div id="backupStatus" class="text-xs -mt-3"></div>
+
+            <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 space-y-3">
+                <div class="flex items-start justify-between gap-3 flex-wrap">
+                    <div class="text-[13px] text-indigo-700">
+                        <i class="fa-solid fa-cloud text-indigo-400 mr-1.5"></i><strong class="text-indigo-900">여러 사람과 데이터 공유</strong> — 구글 시트(Apps Script) 주소를 등록하면, 같은 주소를 입력한 모든 선생님이 같은 편성표·학생 데이터를 저장·조회할 수 있습니다.
+                        <button onclick="document.getElementById('cloudSetupGuide').classList.toggle('hidden')" class="underline text-indigo-600 ml-1">설정 방법 보기</button>
+                    </div>
+                </div>
+                <div id="cloudSetupGuide" class="hidden bg-white border border-indigo-100 rounded-xl p-3 text-[12px] text-slate-600 space-y-1.5">
+                    <p><strong>1)</strong> 구글 드라이브에서 새 <strong>구글 시트</strong>를 하나 만듭니다 (빈 시트면 충분합니다).</p>
+                    <p><strong>2)</strong> 상단 메뉴 <strong>확장 프로그램 → Apps Script</strong>를 클릭합니다.</p>
+                    <p><strong>3)</strong> 기본 코드를 지우고, 아래 코드를 복사해서 붙여넣습니다. <span class="text-slate-400">(데이터를 구글 드라이브 파일에 저장합니다 — 시트 셀은 5만자 제한이 있어 학생 수가 많으면 저장이 잘릴 수 있어 파일 방식을 사용합니다.)</span></p>
+                    <pre class="bg-slate-50 border border-slate-200 rounded-lg p-2 text-[11px] overflow-x-auto whitespace-pre">function getDataFile() {
+  var fileName = 'juseong_course_data.json';
+  var files = DriveApp.getFilesByName(fileName);
+  if (files.hasNext()) {
+    return files.next();
+  }
+  return DriveApp.createFile(fileName, '{}', MimeType.PLAIN_TEXT);
+}
+
+function doGet(e) {
+  var file = getDataFile();
+  var value = file.getBlob().getDataAsString();
+  return ContentService.createTextOutput(value || '{}')
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  var file = getDataFile();
+  file.setContent(e.postData.contents);
+  return ContentService.createTextOutput(JSON.stringify({status:'ok'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+                    <p><strong>4)</strong> 저장(💾) 후 우측 상단 <strong>배포 → 새 배포</strong> 클릭 → 유형에서 <strong>웹 앱</strong> 선택.</p>
+                    <p><strong>5)</strong> "액세스 권한"을 <strong>모든 사용자</strong>로 설정하고 배포 → 권한 승인(본인 계정으로, "고급 → 이동(안전하지 않음)"까지 끝까지 진행).</p>
+                    <p><strong>6)</strong> 발급된 <strong>웹 앱 URL</strong>을 복사해서 아래 입력칸에 붙여넣고 저장하세요. 이 URL을 다른 선생님들에게도 공유하면 모두 같은 데이터를 함께 씁니다.</p>
+                    <p class="text-slate-400">※ 이미 시트 셀 방식(구버전 코드)으로 설정하셨다면, Apps Script 코드를 위 내용으로 통째로 교체한 뒤 <strong>배포 → 배포 관리 → 편집(연필) → 새 버전 → 배포</strong>로 갱신하면 URL은 그대로 유지한 채 문제만 해결됩니다.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <input type="text" id="cloudScriptUrl" placeholder="https://script.google.com/macros/s/xxxxx/exec"
+                           class="flex-1 min-w-[260px] text-xs border border-indigo-200 rounded-full px-4 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400">
+                    <button onclick="saveCloudUrl()" class="btn-pill bg-white border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs px-4 py-2 font-medium transition">URL 저장</button>
+                    <button onclick="testCloudUrl()" class="btn-pill bg-white border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs px-4 py-2 font-medium transition" title="새 탭에서 URL을 열어 JSON이 정상적으로 보이는지 확인합니다">
+                        <i class="fa-solid fa-arrow-up-right-from-square mr-1.5"></i>URL 테스트
+                    </button>
+                    <button onclick="loadFromCloud()" class="btn-pill bg-white border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs px-4 py-2 font-medium transition">
+                        <i class="fa-solid fa-cloud-arrow-down mr-1.5"></i>클라우드에서 불러오기
+                    </button>
+                    <button onclick="saveToCloud()" class="btn-pill bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2 font-medium transition">
+                        <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>클라우드에 저장
+                    </button>
+                </div>
+                <div id="cloudStatus" class="text-[11px] text-indigo-600"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 flex items-center space-x-3.5">
+                    <div class="bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center text-slate-500 shrink-0"><i class="fa-solid fa-user-graduate"></i></div>
+                    <div><p class="text-[11px] text-slate-400 font-medium">총 학생 수</p><h4 id="kpi-total-students" class="text-xl font-semibold text-slate-900">0명</h4></div>
+                </div>
+                <button onclick="quickFilter('PREREQ')" class="bg-white p-5 rounded-2xl border border-slate-100 flex items-center space-x-3.5 text-left hover:border-rose-200 transition">
+                    <div class="bg-rose-50 w-10 h-10 rounded-full flex items-center justify-center text-rose-500 shrink-0"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <div><p class="text-[11px] text-slate-400 font-medium">선수과목 위계 오류</p><h4 id="kpi-prereq-errors" class="text-xl font-semibold text-rose-600">0건</h4></div>
+                </button>
+                <button onclick="quickFilter('CREDIT')" class="bg-white p-5 rounded-2xl border border-slate-100 flex items-center space-x-3.5 text-left hover:border-amber-200 transition">
+                    <div class="bg-amber-50 w-10 h-10 rounded-full flex items-center justify-center text-amber-500 shrink-0"><i class="fa-solid fa-scale-unbalanced"></i></div>
+                    <div><p class="text-[11px] text-slate-400 font-medium">선택학점 상하한 위반</p><h4 id="kpi-credit-errors" class="text-xl font-semibold text-amber-600">0건</h4></div>
+                </button>
+                <button onclick="quickFilter('REQUIRED')" class="bg-white p-5 rounded-2xl border border-slate-100 flex items-center space-x-3.5 text-left hover:border-orange-200 transition">
+                    <div class="bg-orange-50 w-10 h-10 rounded-full flex items-center justify-center text-orange-500 shrink-0"><i class="fa-solid fa-clipboard-check"></i></div>
+                    <div><p class="text-[11px] text-slate-400 font-medium">필수 이수학점 미달</p><h4 id="kpi-required-errors" class="text-xl font-semibold text-orange-600">0건</h4></div>
+                </button>
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 flex items-center space-x-3.5">
+                    <div class="bg-emerald-50 w-10 h-10 rounded-full flex items-center justify-center text-emerald-500 shrink-0"><i class="fa-solid fa-award"></i></div>
+                    <div><p class="text-[11px] text-slate-400 font-medium">평균 진로 적합도</p><h4 id="kpi-avg-fitness" class="text-xl font-semibold text-emerald-600">0%</h4></div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-2">
+                    <div>
+                        <h3 class="font-semibold text-slate-900 text-[15px]">학생별 수강신청 오류 검증 & 누적학점 현황</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">희망 진로/학과는 표에서 직접 입력·수정할 수 있습니다. 행을 클릭하면 세부 분석을 확인합니다.</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="searchStudent" onkeyup="filterStudentTable()" placeholder="학번 또는 이름 검색..."
+                               class="text-xs border border-slate-100 rounded-full px-3.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-slate-400">
+                        <select id="filterStatus" onchange="filterStudentTable()" class="text-xs border border-slate-100 rounded-full px-3 py-1.5 bg-white">
+                            <option value="ALL">전체 보기</option>
+                            <option value="ERROR">오류 발생 학생만 (전체)</option>
+                            <option value="PREREQ">└ 선수과목 위계 오류만</option>
+                            <option value="CREDIT">└ 선택학점 상하한 위반만 (국수영+생활교양)</option>
+                            <option value="BASIC">└ 국·수·영 학점 초과만</option>
+                            <option value="LIFE">└ 생활·교양 학점 미달만</option>
+                            <option value="REQUIRED">└ 필수 이수학점 미달만</option>
+                            <option value="OK">정상 이수 학생만</option>
+                        </select>
+                        <span id="filterCountBadge" class="text-[11px] text-slate-400"></span>
+                        <button onclick="resetAllValidationData()" class="btn-pill bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs px-4 py-2 font-medium transition">
+                            <i class="fa-solid fa-trash-can mr-1.5"></i>전체 초기화
+                        </button>
+                        <button onclick="exportResultExcel()" class="btn-pill bg-slate-900 hover:bg-slate-700 text-white text-xs px-4 py-2 font-medium transition">
+                            <i class="fa-solid fa-arrow-down mr-1.5"></i>다운로드
+                        </button>
+                    </div>
+                </div>
+                <div id="gradeTabBar" class="px-6 pt-3 pb-1 flex flex-wrap gap-2 border-b border-slate-100"></div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="text-slate-400 font-medium text-[11px] uppercase border-b border-slate-100">
+                            <tr>
+                                <th class="px-4 py-3">학번</th>
+                                <th class="px-4 py-3">이름</th>
+                                <th class="px-4 py-3 text-center">학년</th>
+                                <th class="px-4 py-3 text-center">입학년도</th>
+                                <th class="px-4 py-3">희망 진로/학과</th>
+                                <th class="px-4 py-3 text-center">선수과목 위계</th>
+                                <th class="px-4 py-3 text-center">국·수·영 선택학점</th>
+                                <th class="px-4 py-3 text-center">생활·교양 선택학점</th>
+                                <th class="px-4 py-3 text-center">필수 이수학점</th>
+                                <th class="px-4 py-3 text-center">진로 적합도</th>
+                                <th class="px-4 py-3 text-center">상세분석 / AI피드백</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTableBody" class="divide-y divide-slate-200 text-slate-700">
+                            <tr><td colspan="11" class="text-center py-10 text-slate-400">
+                                <i class="fa-solid fa-folder-open text-3xl mb-2 block"></i>
+                                수강신청 데이터를 업로드하거나 [샘플 학생데이터 로드] 버튼을 눌러주세요.
+                            </td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: 교육과정 편성표 관리 -->
+        <section id="section-curriculum" class="space-y-6 hidden">
+            <div>
+                <h2 class="text-[28px] font-semibold tracking-tight text-slate-900">교육과정 편성표 관리</h2>
+                <p class="text-sm text-slate-400 mt-1">입학년도를 자유롭게 추가하고, 연도별 편성표와 필수 이수학점 기준을 관리하세요.</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl border border-slate-100 space-y-4">
+                <div class="flex justify-between items-center flex-wrap gap-2">
+                    <div>
+                        <h3 class="font-semibold text-slate-900 text-[15px]">입학년도별 3개년 교육과정 편성표</h3>
+                        <p class="text-[13px] text-slate-400 mt-0.5">각 연도별로 편성표 엑셀을 따로 업로드하세요. 학생은 수강신청 데이터 업로드 시 소속 입학년도를 지정하면 해당 연도 편성표 기준으로 검증됩니다.</p>
+                    </div>
+                </div>
+
+                <div class="border border-slate-100 rounded-2xl p-4 bg-slate-50 space-y-3">
+                    <h4 class="font-medium text-[13px] text-slate-600">1) 입학년도 추가</h4>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <input type="number" id="newYearInput" placeholder="예: 2028" class="w-28 border border-slate-200 rounded-full text-sm px-4 py-1.5">
+                        <button onclick="addAdmissionYear()" class="btn-pill bg-slate-900 hover:bg-slate-700 text-white text-xs px-4 py-2 font-medium transition">
+                            <i class="fa-solid fa-plus mr-1"></i>입학년도 추가
+                        </button>
+                        <span class="text-[11px] text-slate-400">연도를 추가하면 아래 목록에 나타나고, 편성표 파일을 업로드해 내용을 채울 수 있습니다.</span>
+                    </div>
+                    <h4 class="font-medium text-[13px] text-slate-600 pt-2">2) 편집할 입학년도 선택</h4>
+                    <div id="yearPillList" class="flex flex-wrap gap-2"></div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border border-dashed border-slate-200 p-6 rounded-2xl bg-slate-50 text-center">
+                    <div class="space-y-2 md:col-span-2 text-left">
+                        <h4 class="font-medium text-[13px] text-slate-600">3) <span id="curriculumUploadYearLabel">선택된 연도</span> 편성표 엑셀 파일 업로드</h4>
+                        <p class="text-xs text-slate-400">편성표 엑셀(`.xlsx`)의 <strong class="text-slate-500">구분·교과(군)·과목유형·세부교과목·기본학점·운영학점·필수학점</strong> 열 구조를 자동 인식합니다. 워크북에 여러 시트가 있으면 실제 데이터가 가장 많은 시트를 자동으로 선택합니다.</p>
+                        <input type="file" id="curriculumFileInput" accept=".xlsx, .xls" class="text-xs text-slate-500 block w-full">
+                    </div>
+                    <div class="flex items-center justify-center border-t md:border-t-0 md:border-l border-slate-100 pt-3 md:pt-0">
+                        <button onclick="parseCurriculumExcel()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm px-5 py-2.5 rounded-full transition">
+                            <i class="fa-solid fa-upload mr-1.5"></i>편성표 반영 및 검증기준 업데이트
+                        </button>
+                    </div>
+                </div>
+                <div id="curriculumParseStatus" class="status-box text-xs text-slate-500"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-2xl border border-slate-100">
+                    <h4 class="font-semibold text-slate-900 border-b border-slate-100 pb-3 mb-4 flex items-center text-[15px]">
+                        <i class="fa-solid fa-diagram-project text-indigo-600 mr-2"></i>선수과목 이수 위계 규칙 (2022 개정 국가 공통기준)
+                    </h4>
+                    <div class="space-y-3 text-xs">
+                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                            <p class="font-bold text-indigo-900 mb-1">📐 수학 교과군 위계</p>
+                            <p class="text-slate-600">[공통수학1,2] ➔ [대수 / 확률과 통계] ➔ [미적분Ⅰ] ➔ [미적분Ⅱ / 기하 / 전문수학]</p>
+                            <p class="text-rose-600 font-medium mt-1">⚠️ 미적분Ⅱ 수강 시 필수 선수과목: <span class="underline">미적분Ⅰ 및 대수</span></p>
+                        </div>
+                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                            <p class="font-bold text-emerald-900 mb-1">🔬 과학 교과군 위계</p>
+                            <p class="text-slate-600">[통합과학1,2] ➔ [일반선택: 물리학,화학,생명과학,지구과학] ➔ [진로선택: 세부 심화]</p>
+                            <p class="text-rose-600 font-medium mt-1">⚠️ 역학과 에너지/전자기와 양자 ➔ 필수 선수: <span class="underline">물리학</span></p>
+                            <p class="text-rose-600 font-medium">⚠️ 물질과 에너지/화학 반응의 세계 ➔ 필수 선수: <span class="underline">화학</span></p>
+                            <p class="text-rose-600 font-medium">⚠️ 세포와 물질대사/생물의 유전 ➔ 필수 선수: <span class="underline">생명과학</span></p>
+                            <p class="text-rose-600 font-medium">⚠️ 행성우주과학 ➔ 필수 선수: <span class="underline">지구과학</span></p>
+                        </div>
+                        <p class="text-[11px] text-slate-400">※ 위계 규칙은 국가 교육과정 공통 규정으로, 학교 편성표와 무관하게 고정 적용됩니다. 필요 시 코드 상단 PREREQ_RULES에서 수정할 수 있습니다.</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl border border-slate-100">
+                    <h4 class="font-bold text-slate-900 border-b border-slate-100 pb-3 mb-4 flex items-center">
+                        <i class="fa-solid fa-scale-balanced text-indigo-600 mr-2"></i>국·수·영 / 생활·교양 선택학점 상·하한 (편성표에서 자동 추출, 직접 수정 가능)
+                    </h4>
+                    <ul class="space-y-3 text-xs text-slate-700">
+                        <li class="p-2.5 bg-amber-50 rounded-lg text-amber-900 border border-amber-200">
+                            <strong>2·3학년 국어·수학·영어 선택과목 학점 상한</strong>
+                            <p class="mt-1">학교 지정(공통) 과목 외에 학생이 <em>선택</em>한 국어·수학·영어 교과 학점의 합계 상한입니다.</p>
+                            <div class="flex items-center gap-2 mt-2">
+                                <input type="number" id="ruleBasicMax" value="22" class="w-20 border border-amber-300 rounded px-2 py-1 text-xs">
+                                <span>학점 이하</span>
+                            </div>
+                        </li>
+                        <li class="p-2.5 bg-blue-50 rounded-lg text-blue-900 border border-blue-200">
+                            <strong>2·3학년 생활·교양(기술·가정/정보/제2외국어/한문/교양) 선택 학점 하한</strong>
+                            <div class="flex items-center gap-2 mt-2">
+                                <input type="number" id="ruleLifeMin" value="11" class="w-20 border border-blue-300 rounded px-2 py-1 text-xs">
+                                <span>학점 이상</span>
+                            </div>
+                        </li>
+                        <li class="flex justify-end">
+                            <button onclick="applyRuleThresholds()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2 rounded-full font-medium transition">
+                                <i class="fa-solid fa-check mr-1"></i>기준 적용 및 재검증
+                            </button>
+                        </li>
+                        <li class="p-2.5 bg-slate-50 rounded-lg text-slate-800 border border-slate-100">
+                            <strong>1~3학년 누적 계산 공식:</strong><br>
+                            총 이수학점 = 학교지정 과목(자동 부여, 학년별 배치 고정) + 학생이 실제로 신청한 선택과목<br>
+                            <span class="text-[11px] text-slate-500">대수·미적분Ⅰ·확률과 통계·문학·영어Ⅰ·Ⅱ 등은 "학교지정" 과목으로, 학기별 배치 칸에 대안 없이 숫자만 있으면 전 학생에게 자동 부여됩니다 (수강신청 엑셀에는 나타나지 않음). "택N" 문구가 있는 과목만 실제 선택 대상입니다. 위 상한/하한 규정은 <strong>학생이 실제로 선택한 과목</strong>만을 기준으로 검증합니다 (학교지정 필수과목은 제외).</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-100 space-y-3">
+                <div class="flex justify-between items-center flex-wrap gap-2 border-b border-slate-100 pb-3">
+                    <h4 class="font-bold text-slate-900 flex items-center">
+                        <i class="fa-solid fa-clipboard-check text-indigo-600 mr-2"></i>교과(군)별 필수 이수학점 (<span id="requiredCreditYearLabel">-</span> 입학생, 1~3학년 총 누적 기준)
+                    </h4>
+                    <div class="flex items-center gap-2">
+                        <button onclick="resetRequiredCreditsFromCurriculum()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-3 py-1.5 rounded-lg font-medium border border-slate-300">
+                            <i class="fa-solid fa-arrows-rotate mr-1"></i>편성표 자동 추출값으로 초기화
+                        </button>
+                        <button onclick="addRequiredCreditRow()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-3 py-1.5 rounded-lg font-medium border border-slate-300">
+                            <i class="fa-solid fa-plus mr-1"></i>교과군 추가
+                        </button>
+                        <button onclick="applyRequiredCredits()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2 rounded-full font-medium transition">
+                            <i class="fa-solid fa-check mr-1"></i>저장 및 재검증
+                        </button>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500">편성표의 "필수학점" 열에서 자동으로 추출된 값입니다. 교과군명·학점 모두 직접 수정하거나 행을 추가/삭제할 수 있습니다. 여기 입력된 값은 학생의 <strong>1~3학년 누적 이수학점(학교지정+선택 전체)</strong>과 비교해 미달 여부를 판정합니다.</p>
+                <div class="overflow-x-auto border border-slate-100 rounded-lg">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 text-slate-600 font-semibold uppercase border-b border-slate-100">
+                            <tr><th class="px-3 py-2">교과(군)</th><th class="px-3 py-2 w-40">필수 이수학점</th><th class="px-3 py-2 w-16 text-center">삭제</th></tr>
+                        </thead>
+                        <tbody id="requiredCreditsTableBody" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-100">
+                <h4 class="font-bold text-slate-900 mb-3 flex items-center"><i class="fa-solid fa-database text-indigo-600 mr-2"></i>현재 편집 중인 편성표의 과목 데이터베이스</h4>
+                <div id="curriculumPreview" class="text-xs text-slate-500">편성표를 업로드하거나 기본 내장 데이터를 사용합니다.</div>
+                <div class="mt-3 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-700">
+                    <i class="fa-solid fa-circle-info mr-1"></i>학교 편성표에 없는 과목명이 수강신청 데이터에 나타나면, 2022 개정 교육과정 국가 표준 과목(<span id="nationalDbCount">-</span>개, 충청북도교육과정 총론 &lt;표5&gt; 보통교과 기준)에서 자동으로 교과군·학점을 보완합니다.
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: 수강신청 데이터 파싱 -->
+        <section id="section-students" class="space-y-6 hidden">
+            <div>
+                <h2 class="text-[28px] font-semibold tracking-tight text-slate-900">수강신청 데이터 파싱</h2>
+                <p class="text-sm text-slate-400 mt-1">학년/학기별 수강신청 엑셀을 업로드하면 학번 기준으로 자동 병합됩니다.</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl border border-slate-100 space-y-4">
+                <div>
+                    <h3 class="font-semibold text-slate-900 text-[15px]">학생 수강신청 엑셀 파일 업로드 (학년/학기별)</h3>
+                    <p class="text-[13px] text-slate-400 mt-0.5">[학번] 헤더가 있는 행을 자동으로 인식하고, 바로 아래 행의 과목명 열들을 "택N" 그룹과 무관하게 모두 인식합니다. 학번을 기준으로 여러 학기 파일을 자동 병합합니다. 같은 학년의 1학기·2학기 파일을 함께 선택해 업로드하세요.</p>
+                </div>
+
+                <div class="border border-slate-100 bg-slate-50 rounded-2xl p-4">
+                    <label class="block font-medium text-xs text-slate-600 mb-1.5">이 학생들이 따르는 입학년도 교육과정</label>
+                    <select id="studentAdmissionYearSelect" onchange="onStudentAdmissionYearChange()" class="border border-slate-200 rounded-full text-sm px-4 py-1.5 bg-white"></select>
+                    <p class="text-[11px] text-slate-400 mt-1.5">아래에서 업로드하는 파일의 학생들은 선택한 입학년도의 편성표(필수 이수학점 포함)를 기준으로 검증됩니다. 편성표가 없는 연도라면 먼저 "교육과정 편성표" 탭에서 추가·업로드해주세요.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="border border-slate-100 p-4 rounded-2xl bg-slate-50 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="block font-medium text-xs text-slate-600">2학년 1/2학기 수강신청 파일 (`.xlsx`, 복수 선택 가능)</label>
+                            <button onclick="clearFileInput('grade2ExcelInput')" class="text-[11px] text-slate-400 hover:text-rose-500 shrink-0" title="선택한 파일 지우기">
+                                <i class="fa-solid fa-xmark mr-0.5"></i>지우기
+                            </button>
+                        </div>
+                        <input type="file" id="grade2ExcelInput" multiple accept=".xlsx, .xls" class="text-xs w-full">
+                    </div>
+                    <div class="border border-slate-100 p-4 rounded-2xl bg-slate-50 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="block font-medium text-xs text-slate-600">3학년 1/2학기 수강신청 파일 (`.xlsx`, 복수 선택 가능)</label>
+                            <button onclick="clearFileInput('grade3ExcelInput')" class="text-[11px] text-slate-400 hover:text-rose-500 shrink-0" title="선택한 파일 지우기">
+                                <i class="fa-solid fa-xmark mr-0.5"></i>지우기
+                            </button>
+                        </div>
+                        <input type="file" id="grade3ExcelInput" multiple accept=".xlsx, .xls" class="text-xs w-full">
+                    </div>
+                </div>
+
+                <div id="studentParseStatus" class="status-box text-xs text-slate-500"></div>
+
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button onclick="loadDemoData()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium text-xs px-4 py-2 rounded-lg">
+                        기존 테스트 데이터 사용
+                    </button>
+                    <button onclick="parseStudentExcels()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs px-5 py-2 rounded-lg shadow">
+                        <i class="fa-solid fa-arrows-to-dot mr-1"></i>데이터 병합 및 누적학점 검증 실행
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB: 학생별 교과(목) 신청 -->
+        <section id="section-single-student" class="space-y-6 hidden">
+            <div>
+                <h2 class="text-[28px] font-semibold tracking-tight text-slate-900">학생별 교과 신청</h2>
+                <p class="text-sm text-slate-400 mt-1">학생 한 명의 기본 정보와 선택과목을 직접 입력·수정합니다. 이미 등록된 학번을 입력하면 기존 데이터를 불러와 수정할 수 있습니다.</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-100 space-y-5">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1.5">학번</label>
+                        <input type="text" id="ssStudentId" onchange="loadSingleStudentForEdit()" oninput="onSingleStudentIdInput()" placeholder="예: 20101"
+                               class="w-full text-sm border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-slate-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1.5">이름</label>
+                        <input type="text" id="ssStudentName" placeholder="이름"
+                               class="w-full text-sm border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-slate-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1.5">입학년도</label>
+                        <select id="ssAdmissionYear" onchange="renderElectivePicker()" class="w-full text-sm border border-slate-200 rounded-xl p-2.5 bg-white"></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1.5">희망 진로 / 학과</label>
+                        <input type="text" id="ssCareer" placeholder="예: 기계공학과"
+                               class="w-full text-sm border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-slate-400">
+                    </div>
+                </div>
+
+                <div id="ssExistingBadge" class="hidden text-[12px] text-blue-700 bg-blue-50 border border-blue-100 rounded-xl px-3.5 py-2.5"></div>
+
+                <div class="border-t border-slate-100 pt-4">
+                    <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1.5">과목을 선택할 학년</label>
+                            <div id="ssGradeTabContainer" class="flex gap-2"></div>
+                            <div id="ssSemesterTabContainer" class="flex gap-1.5 mt-2"></div>
+                        </div>
+                        <p class="text-[11px] text-slate-400 max-w-sm text-right">학교지정(공통) 과목은 자동으로 부여되므로 목록에 없습니다. 학생이 실제로 신청한 선택과목만 체크하세요.</p>
+                    </div>
+                    <div id="ssElectivePicker" class="space-y-3"></div>
+                </div>
+
+                <div class="border-t border-slate-100 pt-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-xs font-medium text-slate-500">실시간 검증 미리보기</label>
+                        <span class="text-[11px] text-slate-400">체크박스를 선택할 때마다 자동으로 갱신됩니다</span>
+                    </div>
+                    <div id="ssLivePreview" class="space-y-2"></div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button onclick="clearSingleStudentForm()" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs px-4 py-2 rounded-full font-medium transition">양식 초기화</button>
+                    <button onclick="saveSingleStudent()" class="btn-pill bg-slate-900 hover:bg-slate-700 text-white text-xs px-5 py-2.5 font-medium transition">
+                        <i class="fa-solid fa-floppy-disk mr-1.5"></i>저장
+                    </button>
+                </div>
+                <div id="ssSaveStatus" class="text-xs"></div>
+            </div>
+        </section>
+
+        <!-- TAB 4: Gemini AI 진로·학과 적합성 평가 -->
+        <section id="section-ai-eval" class="space-y-6 hidden">
+            <div>
+                <span class="bg-slate-900 text-white font-medium text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wide">Gemini AI Career Advisor</span>
+                <h2 class="text-[28px] font-semibold tracking-tight text-slate-900 mt-2">희망 진로·학과 과목 적합성 평가</h2>
+                <p class="text-sm text-slate-400 mt-1">학생이 입력한 희망 학과/진로와 3개년간 선택한 교과목을 분석해 적합성 점수, 강점, 보완 과목을 제안합니다.</p>
+            </div>
+
+            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1.5">학생 선택 (검증 데이터 기반)</label>
+                        <select id="aiStudentSelect" onchange="loadStudentToAIEval()" class="w-full text-sm border border-slate-200 rounded-xl p-2.5 bg-white">
+                            <option value="">-- 학생을 선택하세요 --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1.5">희망 진로 / 목표 학과</label>
+                        <input type="text" id="aiCareerInput" placeholder="예: 기계공학과, 컴퓨터공학과, 의예과, 경영학과 등"
+                               class="w-full text-sm border border-slate-200 rounded-xl p-2.5 bg-white">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="runGeminiEvaluation()" class="w-full btn-pill bg-slate-900 hover:bg-slate-700 text-white font-medium text-sm py-2.5 transition">
+                            <i class="fa-solid fa-sparkles mr-1.5"></i>AI 과목 적합성 평가 실행
+                        </button>
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-3"><i class="fa-solid fa-lightbulb mr-1"></i>목록에서 학생을 선택하거나 직접 희망학과를 입력한 뒤 평가를 실행하세요. Gemini API 키를 입력하지 않으면 내장 규칙 기반 엔진이 대신 분석합니다.</p>
+            </div>
+
+            <div id="aiResultContainer" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-2xl border border-slate-100 space-y-6">
+                    <div class="text-center pb-4 border-b border-slate-100">
+                        <span id="aiScoreBadge" class="text-4xl font-black text-indigo-600">0점</span>
+                        <p class="text-xs font-bold text-slate-500 mt-1">희망 진로 과목 선택 적합도</p>
+                        <div class="w-full bg-slate-100 rounded-full h-3 mt-3 overflow-hidden">
+                            <div id="aiScoreBar" class="bg-indigo-600 h-3 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-xs text-slate-500 uppercase tracking-wider mb-2">학생 선택 과목 목록</h4>
+                        <div id="aiSelectedSubjectsChips" class="flex flex-wrap gap-1 text-xs"></div>
+                    </div>
+                    <div class="space-y-3 pt-2">
+                        <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                            <h5 class="text-xs font-bold text-emerald-900"><i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>이수한 핵심 권장 과목</h5>
+                            <p id="aiMatchedSubjects" class="text-xs text-emerald-800 mt-1"></p>
+                        </div>
+                        <div class="p-3 bg-rose-50 border border-rose-200 rounded-lg">
+                            <h5 class="text-xs font-bold text-rose-900"><i class="fa-solid fa-circle-xmark text-rose-600 mr-1"></i>누락 및 추천 보완 과목</h5>
+                            <p id="aiMissingSubjects" class="text-xs text-rose-800 mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h3 class="font-bold text-slate-900 text-lg flex items-center">
+                            <i class="fa-solid fa-brain text-indigo-600 mr-2"></i>Gemini AI 종합 심층 피드백 및 학업계획 가이드
+                        </h3>
+                        <span id="aiEngineLabel" class="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded border">Rule-based AI Engine</span>
+                    </div>
+                    <div id="aiFeedbackText" class="text-sm text-slate-700 space-y-4 leading-relaxed"></div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Student Detail Modal -->
+    <div id="studentModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center rounded-t-2xl">
+                <div>
+                    <h3 id="modalStudentName" class="text-lg font-semibold text-slate-900"></h3>
+                    <p id="modalStudentCareer" class="text-xs text-slate-400 mt-0.5"></p>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700 text-xl"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-6 space-y-6 text-sm">
+                <div id="modalErrorContainer" class="space-y-2"></div>
+                <div id="modalUnknownContainer"></div>
+                <div>
+                    <h4 class="font-bold text-slate-900 mb-2">📊 교과(군)별 누적 학점 현황 (<span id="modalAdmissionYearLabel">-</span> 입학생 편성표 기준)</h4>
+                    <div class="overflow-x-auto border border-slate-100 rounded-lg">
+                        <table class="w-full text-center text-xs">
+                            <thead class="bg-slate-100 font-semibold text-slate-700">
+                                <tr><th class="p-2">교과군</th><th class="p-2">총 누적학점</th><th class="p-2">2·3학년 선택학점</th><th class="p-2">필수 이수학점</th><th class="p-2">충족 여부</th><th class="p-2">비고</th></tr>
+                            </thead>
+                            <tbody id="modalCreditTableBody" class="divide-y divide-slate-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="font-bold text-slate-900 mb-2">📚 학년별 수강신청 선택 과목 목록</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                        <div class="bg-slate-50 p-3 rounded-lg border">
+                            <span class="font-bold text-slate-700 block border-b pb-1 mb-2">1학년 공통과목 (자동)</span>
+                            <ul id="modalGrade1List" class="space-y-1 text-slate-600"></ul>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-lg border">
+                            <span class="font-bold text-blue-700 block border-b pb-1 mb-2">2학년 선택과목</span>
+                            <ul id="modalGrade2List" class="space-y-1 text-slate-600"></ul>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-lg border">
+                            <span class="font-bold text-indigo-700 block border-b pb-1 mb-2">3학년 선택과목</span>
+                            <ul id="modalGrade3List" class="space-y-1 text-slate-600"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center rounded-b-2xl">
+                <button onclick="deleteStudentFromModal()" class="bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs px-4 py-2 rounded-full font-medium transition">
+                    <i class="fa-solid fa-trash-can mr-1"></i>이 학생 삭제
+                </button>
+                <div class="flex space-x-2">
+                    <button onclick="jumpToAIEvalFromModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2 rounded-full font-medium transition">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>이 학생 Gemini AI 진로 평가
+                    </button>
+                    <button onclick="closeModal()" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs px-4 py-2 rounded-full font-medium transition">닫기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // GLOBAL STATE
+        // =====================================================================
+        // curriculumSets: { [year]: { subjectMap, commonSubjects, rules, sourceFileName } }
+        let appData = {
+            activeCurriculumYear: '2026',
+            curriculumSets: {},
+            students: {}   // keyed by 학번(id) -> student object
+        };
+
+        // 2022 개정 교육과정 국가 공통 선수과목 위계 규칙 (학교 편성표와 무관하게 고정)
+        // 각 항목의 값은 "AND로 묶인 OR-그룹"의 배열입니다.
+        // 예: 미적분Ⅱ = [['미적분Ⅰ','미적분 I'], ['대수']] → (미적분Ⅰ 또는 미적분 I) 그리고 대수, 둘 다 필요
+        // 과목명 끝의 '*'(공동교육과정/온라인 학교 등을 표시하는 접미사)는 학교/연도별 편성표마다
+        // 붙이는 기준이 달라서(예: 2026판은 물리학*만, 2027판은 물리학*·화학*·생명과학*·지구과학* 전부)
+        // 비교 시 baseName()으로 always 제거하고 비교합니다.
+        const PREREQ_RULES = {
+            '미적분Ⅱ': [['미적분Ⅰ', '미적분 I'], ['대수']],
+            '역학과 에너지': [['물리학']],
+            '전자기와 양자': [['물리학']],
+            '물질과 에너지': [['화학']],
+            '화학 반응의 세계': [['화학']],
+            '세포와 물질대사': [['생명과학']],
+            '생물의 유전': [['생명과학']],
+            '행성우주과학': [['지구과학']],
+            '지구시스템과학': [['지구과학']],
+            '고급 물리학': [['물리학']],
+            '고급 화학': [['화학']],
+            '고급 생명과학': [['생명과학']],
+            '고급 지구과학': [['지구과학']]
+        };
+
+        function baseName(s) {
+            return String(s || '').replace(/\*+\s*$/, '').trim();
+        }
+
+        // 학번 앞자리를 기준으로 현재 학년을 판별합니다 (1/2/3학년 관례 표기).
+        // 앞자리가 1~3이 아니면(형식이 다른 학교) null을 반환하고 "미분류"로 처리합니다.
+        function studentGrade(st) {
+            if (!st || !st.id) return null;
+            const d = parseInt(String(st.id).charAt(0), 10);
+            return [1, 2, 3].includes(d) ? d : null;
+        }
+
+        let currentGradeTab = 'ALL';
+        function setGradeTab(g) {
+            currentGradeTab = g;
+            renderDashboard();
+        }
+
+        // 학교 편성표(cur.subjectMap)를 최우선으로 찾고, 없으면 국가 표준 과목
+        // 데이터베이스(NATIONAL_SUBJECT_DB)에서 폴백으로 찾습니다. ('*' 접미사 유무 모두 시도)
+        let _nationalDbBaseIndex = null;
+        function nationalDbBaseIndex() {
+            if (_nationalDbBaseIndex) return _nationalDbBaseIndex;
+            _nationalDbBaseIndex = {};
+            Object.entries(NATIONAL_SUBJECT_DB).forEach(([name, info]) => {
+                _nationalDbBaseIndex[baseName(name)] = info;
+            });
+            return _nationalDbBaseIndex;
+        }
+        // 학교 편성표 자체도 '*' 접미사 유무(예: 편성표의 "물리학*" vs 수강신청 파일의 "물리학")가
+        // 서로 다를 수 있어, 정확히 일치하는 이름이 없으면 접미사를 무시하고 다시 찾습니다.
+        function schoolBaseIndex(cur) {
+            if (!cur) return {};
+            if (!cur._baseIndexCache) {
+                cur._baseIndexCache = {};
+                Object.entries(cur.subjectMap).forEach(([name, info]) => {
+                    const key = baseName(name);
+                    if (!(key in cur._baseIndexCache)) cur._baseIndexCache[key] = { name, info };
+                });
+            }
+            return cur._baseIndexCache;
+        }
+        function lookupSubject(cur, name) {
+            if (cur && cur.subjectMap && cur.subjectMap[name]) return { info: cur.subjectMap[name], source: 'school' };
+            if (cur) {
+                const viaSchoolBase = schoolBaseIndex(cur)[baseName(name)];
+                if (viaSchoolBase) return { info: viaSchoolBase.info, source: 'school' };
+            }
+            if (NATIONAL_SUBJECT_DB[name]) return { info: NATIONAL_SUBJECT_DB[name], source: 'national' };
+            const viaBase = nationalDbBaseIndex()[baseName(name)];
+            if (viaBase) return { info: viaBase, source: 'national' };
+            return null;
+        }
+
+        // 수강신청/반편성 파일의 과목명 표기가 편성표와 조금 달라도(예: '*' 접미사 유무),
+        // 학교 편성표에 등재된 "정식 표기"로 맞춰줍니다. 이렇게 해야 학교지정(자동부여) 과목과
+        // 이름이 어긋나 같은 과목이 중복으로 집계되는 것을 막을 수 있습니다.
+        function canonicalSubjectName(cur, name) {
+            if (cur && cur.subjectMap && cur.subjectMap[name]) return name;
+            if (cur) {
+                const viaBase = schoolBaseIndex(cur)[baseName(name)];
+                if (viaBase) return viaBase.name;
+            }
+            return name;
+        }
+
+        // 진로/학과별 권장 과목 DB (내장 룰기반 엔진용, Gemini 미사용 시 폴백)
+        const CAREER_RECOMMENDATIONS = {
+            '기계공학': ['물리학', '물리학*', '미적분Ⅰ', '미적분 I', '대수', '기하', '역학과 에너지', '미적분Ⅱ', '미적분Ⅱ*', '전문 수학'],
+            '전자전기공학': ['물리학', '물리학*', '미적분Ⅰ', '미적분 I', '대수', '전자기와 양자', '기하', '미적분Ⅱ', '미적분Ⅱ*'],
+            '컴퓨터공학': ['대수', '미적분Ⅰ', '미적분 I', '확률과 통계', '인공지능 기초*', '정보*', '빅 데이터 분석*', '데이터 과학*', '수학과제 탐구*'],
+            '화학공학': ['화학', '물리학', '물리학*', '미적분Ⅰ', '미적분 I', '물질과 에너지', '화학 반응의 세계'],
+            '생명공학/의예/약학': ['화학', '생명과학', '세포와 물질대사', '생물의 유전', '미적분Ⅰ', '미적분 I', '확률과 통계'],
+            '경영/경제학': ['대수', '확률과 통계', '미적분Ⅰ', '미적분 I', '사회와 문화', '경제', '실용 통계'],
+            '인문/언어학': ['독서 토론과 글쓰기', '주제 탐구 독서', '세계사', '언어생활 탐구', '문학과 영상'],
+            '사회과학/법학': ['정치', '법과 사회', '경제', '사회와 문화', '국제 관계의 이해'],
+            '디자인/예술': ['미술 창작', '미술 감상과 비평', '음악과 미디어', '미술과 매체']
+        };
+
+
+        // =====================================================================
+        // 국가 표준 과목 데이터베이스 (2022 개정 교육과정, 충청북도교육과정 총론 <표 5> 보통교과 기준)
+        // 학교별 편성표에 없는 과목이라도 이 표준 목록에 있으면 자동으로 교과군/학점을
+        // 인식할 수 있도록 하는 폴백(fallback) 데이터입니다. 학교 편성표가 최우선 적용되며,
+        // 편성표에 없는 과목에 한해서만 이 데이터베이스를 참고합니다.
+        // =====================================================================
+        const NATIONAL_SUBJECT_DB = {"공통국어1": {"category": "국어", "type": "공통", "credit": 4}, "공통국어2": {"category": "국어", "type": "공통", "credit": 4}, "화법과 언어": {"category": "국어", "type": "일반", "credit": 4}, "독서와 작문": {"category": "국어", "type": "일반", "credit": 4}, "문학": {"category": "국어", "type": "일반", "credit": 4}, "주제 탐구 독서": {"category": "국어", "type": "진로", "credit": 4}, "문학과 영상": {"category": "국어", "type": "진로", "credit": 4}, "직무 의사소통": {"category": "국어", "type": "진로", "credit": 4}, "독서 토론과 글쓰기": {"category": "국어", "type": "융합", "credit": 4}, "매체 의사소통": {"category": "국어", "type": "융합", "credit": 4}, "언어생활 탐구": {"category": "국어", "type": "융합", "credit": 4}, "공통수학1": {"category": "수학", "type": "공통", "credit": 4}, "공통수학2": {"category": "수학", "type": "공통", "credit": 4}, "기본수학1": {"category": "수학", "type": "공통", "credit": 4}, "기본수학2": {"category": "수학", "type": "공통", "credit": 4}, "대수": {"category": "수학", "type": "일반", "credit": 4}, "미적분Ⅰ": {"category": "수학", "type": "일반", "credit": 4}, "확률과 통계": {"category": "수학", "type": "일반", "credit": 4}, "기하": {"category": "수학", "type": "진로", "credit": 4}, "미적분Ⅱ": {"category": "수학", "type": "진로", "credit": 4}, "경제 수학": {"category": "수학", "type": "진로", "credit": 4}, "인공지능 수학": {"category": "수학", "type": "진로", "credit": 4}, "직무 수학": {"category": "수학", "type": "진로", "credit": 4}, "수학과 문화": {"category": "수학", "type": "융합", "credit": 4}, "실용 통계": {"category": "수학", "type": "융합", "credit": 4}, "수학과제 탐구": {"category": "수학", "type": "융합", "credit": 4}, "공통영어1": {"category": "영어", "type": "공통", "credit": 4}, "공통영어2": {"category": "영어", "type": "공통", "credit": 4}, "기본영어1": {"category": "영어", "type": "공통", "credit": 4}, "기본영어2": {"category": "영어", "type": "공통", "credit": 4}, "영어Ⅰ": {"category": "영어", "type": "일반", "credit": 4}, "영어Ⅱ": {"category": "영어", "type": "일반", "credit": 4}, "영어 독해와 작문": {"category": "영어", "type": "일반", "credit": 4}, "영미 문학 읽기": {"category": "영어", "type": "진로", "credit": 4}, "영어 발표와 토론": {"category": "영어", "type": "진로", "credit": 4}, "심화 영어": {"category": "영어", "type": "진로", "credit": 4}, "심화 영어 독해와 작문": {"category": "영어", "type": "진로", "credit": 4}, "직무 영어": {"category": "영어", "type": "진로", "credit": 4}, "실생활 영어 회화": {"category": "영어", "type": "융합", "credit": 4}, "미디어 영어": {"category": "영어", "type": "융합", "credit": 4}, "세계 문화와 영어": {"category": "영어", "type": "융합", "credit": 4}, "한국사1": {"category": "사회", "type": "공통", "credit": 3}, "한국사2": {"category": "사회", "type": "공통", "credit": 3}, "통합사회1": {"category": "사회", "type": "공통", "credit": 4}, "통합사회2": {"category": "사회", "type": "공통", "credit": 4}, "세계시민과 지리": {"category": "사회", "type": "일반", "credit": 4}, "세계사": {"category": "사회", "type": "일반", "credit": 4}, "사회와 문화": {"category": "사회", "type": "일반", "credit": 4}, "현대사회와 윤리": {"category": "사회", "type": "일반", "credit": 4}, "한국지리 탐구": {"category": "사회", "type": "진로", "credit": 4}, "도시의 미래 탐구": {"category": "사회", "type": "진로", "credit": 4}, "동아시아 역사 기행": {"category": "사회", "type": "진로", "credit": 4}, "정치": {"category": "사회", "type": "진로", "credit": 4}, "법과 사회": {"category": "사회", "type": "진로", "credit": 4}, "경제": {"category": "사회", "type": "진로", "credit": 4}, "윤리와 사상": {"category": "사회", "type": "진로", "credit": 4}, "인문학과 윤리": {"category": "사회", "type": "진로", "credit": 4}, "국제 관계의 이해": {"category": "사회", "type": "진로", "credit": 4}, "여행지리": {"category": "사회", "type": "융합", "credit": 4}, "역사로 탐구하는 현대 세계": {"category": "사회", "type": "융합", "credit": 4}, "사회문제 탐구": {"category": "사회", "type": "융합", "credit": 4}, "금융과 경제생활": {"category": "사회", "type": "융합", "credit": 4}, "윤리문제 탐구": {"category": "사회", "type": "융합", "credit": 4}, "기후변화와 지속가능한 세계": {"category": "사회", "type": "융합", "credit": 4}, "통합과학1": {"category": "과학", "type": "공통", "credit": 4}, "통합과학2": {"category": "과학", "type": "공통", "credit": 4}, "과학탐구실험1": {"category": "과학", "type": "공통", "credit": 1}, "과학탐구실험2": {"category": "과학", "type": "공통", "credit": 1}, "물리학": {"category": "과학", "type": "일반", "credit": 4}, "화학": {"category": "과학", "type": "일반", "credit": 4}, "생명과학": {"category": "과학", "type": "일반", "credit": 4}, "지구과학": {"category": "과학", "type": "일반", "credit": 4}, "역학과 에너지": {"category": "과학", "type": "진로", "credit": 4}, "전자기와 양자": {"category": "과학", "type": "진로", "credit": 4}, "물질과 에너지": {"category": "과학", "type": "진로", "credit": 4}, "화학 반응의 세계": {"category": "과학", "type": "진로", "credit": 4}, "세포와 물질대사": {"category": "과학", "type": "진로", "credit": 4}, "생물의 유전": {"category": "과학", "type": "진로", "credit": 4}, "지구시스템과학": {"category": "과학", "type": "진로", "credit": 4}, "행성우주과학": {"category": "과학", "type": "진로", "credit": 4}, "과학의 역사와 문화": {"category": "과학", "type": "융합", "credit": 4}, "기후변화와 환경생태": {"category": "과학", "type": "융합", "credit": 4}, "융합과학 탐구": {"category": "과학", "type": "융합", "credit": 4}, "체육1": {"category": "체육", "type": "공통", "credit": 3}, "체육2": {"category": "체육", "type": "공통", "credit": 3}, "운동과 건강": {"category": "체육", "type": "일반", "credit": 3}, "스포츠 문화*": {"category": "체육", "type": "일반", "credit": 2}, "스포츠 과학*": {"category": "체육", "type": "일반", "credit": 2}, "스포츠 생활1": {"category": "체육", "type": "융합", "credit": 3}, "스포츠 생활2": {"category": "체육", "type": "융합", "credit": 3}, "음악": {"category": "예술", "type": "일반", "credit": 3}, "미술": {"category": "예술", "type": "일반", "credit": 3}, "연극": {"category": "예술", "type": "일반", "credit": 3}, "음악 연주와 창작": {"category": "예술", "type": "진로", "credit": 3}, "음악 감상과 비평": {"category": "예술", "type": "진로", "credit": 3}, "미술 창작": {"category": "예술", "type": "진로", "credit": 3}, "미술 감상과 비평": {"category": "예술", "type": "진로", "credit": 3}, "음악과 미디어": {"category": "예술", "type": "융합", "credit": 3}, "미술과 매체": {"category": "예술", "type": "융합", "credit": 3}, "로봇과 공학세계": {"category": "생활교양", "type": "일반", "credit": 3}, "생활과학 탐구": {"category": "생활교양", "type": "일반", "credit": 3}, "창의 공학 설계": {"category": "생활교양", "type": "진로", "credit": 3}, "지식 재산 일반": {"category": "생활교양", "type": "진로", "credit": 3}, "아동발달과 부모": {"category": "생활교양", "type": "진로", "credit": 3}, "생애 설계와 자립*": {"category": "생활교양", "type": "진로", "credit": 2}, "인공지능 기초": {"category": "생활교양", "type": "진로", "credit": 3}, "데이터 과학": {"category": "생활교양", "type": "진로", "credit": 3}, "소프트웨어와 생활": {"category": "생활교양", "type": "융합", "credit": 3}, "독일어": {"category": "생활교양", "type": "일반", "credit": 3}, "프랑스어": {"category": "생활교양", "type": "일반", "credit": 3}, "스페인어": {"category": "생활교양", "type": "일반", "credit": 3}, "중국어": {"category": "생활교양", "type": "일반", "credit": 3}, "일본어": {"category": "생활교양", "type": "일반", "credit": 3}, "러시아어": {"category": "생활교양", "type": "일반", "credit": 3}, "아랍어": {"category": "생활교양", "type": "일반", "credit": 3}, "베트남어": {"category": "생활교양", "type": "일반", "credit": 3}, "독일어 회화": {"category": "생활교양", "type": "진로", "credit": 3}, "프랑스어 회화": {"category": "생활교양", "type": "진로", "credit": 3}, "스페인어 회화": {"category": "생활교양", "type": "진로", "credit": 3}, "중국어 회화": {"category": "생활교양", "type": "진로", "credit": 3}, "일본어 회화": {"category": "생활교양", "type": "진로", "credit": 3}, "러시아어 회화": {"category": "생활교양", "type": "진로", "credit": 3}, "아랍어 회화": {"category": "생활교양", "type": "진로", "credit": 3}, "베트남어 회화": {"category": "생활교양", "type": "진로", "credit": 3}, "독일어권 문화": {"category": "생활교양", "type": "진로", "credit": 3}, "프랑스어권 문화": {"category": "생활교양", "type": "진로", "credit": 3}, "스페인어권 문화": {"category": "생활교양", "type": "진로", "credit": 3}, "중국 문화": {"category": "생활교양", "type": "진로", "credit": 3}, "일본 문화": {"category": "생활교양", "type": "진로", "credit": 3}, "러시아 문화": {"category": "생활교양", "type": "진로", "credit": 3}, "아랍 문화": {"category": "생활교양", "type": "진로", "credit": 3}, "베트남 문화": {"category": "생활교양", "type": "진로", "credit": 3}, "심화 독일어": {"category": "생활교양", "type": "융합", "credit": 3}, "심화 프랑스어": {"category": "생활교양", "type": "융합", "credit": 3}, "심화 스페인어": {"category": "생활교양", "type": "융합", "credit": 3}, "심화 중국어": {"category": "생활교양", "type": "융합", "credit": 3}, "심화 일본어": {"category": "생활교양", "type": "융합", "credit": 3}, "심화 러시아어": {"category": "생활교양", "type": "융합", "credit": 3}, "심화 아랍어": {"category": "생활교양", "type": "융합", "credit": 3}, "심화 베트남어": {"category": "생활교양", "type": "융합", "credit": 3}, "한문": {"category": "생활교양", "type": "일반", "credit": 3}, "한문 고전 읽기": {"category": "생활교양", "type": "진로", "credit": 3}, "언어생활과 한자": {"category": "생활교양", "type": "융합", "credit": 3}, "진로와 직업": {"category": "생활교양", "type": "일반", "credit": 3}, "생태와 환경": {"category": "생활교양", "type": "일반", "credit": 3}, "인간과 철학": {"category": "생활교양", "type": "진로", "credit": 3}, "논리와 사고": {"category": "생활교양", "type": "진로", "credit": 3}, "인간과 심리": {"category": "생활교양", "type": "진로", "credit": 3}, "교육의 이해": {"category": "생활교양", "type": "진로", "credit": 3}, "삶과 종교": {"category": "생활교양", "type": "진로", "credit": 3}, "보건": {"category": "생활교양", "type": "진로", "credit": 3}, "인간과 경제활동": {"category": "생활교양", "type": "융합", "credit": 3}, "논술": {"category": "생활교양", "type": "융합", "credit": 3}};
+
+        // =====================================================================
+        // 기본 내장 커리큘럼 (주성고 2026학년도 입학생 3개년 편성표 - 업로드 파일 기준 자동 생성)
+        // =====================================================================
+        const BUILTIN_CURRICULUM_2026 = {
+            sourceFileName: '(내장 기본값) 2026학년도 입학생 기준 3개년 교육과정 편성표_주성고.xlsx',
+            rules: { basicMax: 22, lifeMin: 11 },
+            commonSubjects: ["공통국어1","공통국어2","공통수학1","공통수학2","공통영어1","공통영어2","한국사1","한국사2","통합사회1","통합사회2","통합과학1","통합과학2","과학탐구실험1","과학탐구실험2"],
+            mandatoryByGrade: {"1":["공통국어1","공통국어2","공통수학1","공통수학2","공통영어1","공통영어2","한국사1","한국사2","통합사회1","통합사회2","통합과학1","통합과학2","과학탐구실험1","과학탐구실험2","체육1","체육2","정보*"],"2":["독서와 작문","문학","대수","미적분 I","영어 I","영어 II","스포츠 문화","스포츠 과학"],"3":["화법과 언어","확률과 통계","심화 영어","스포츠 생활1","스포츠 생활2"]},
+            requiredByCategory: {"국어":8,"수학":8,"영어":8,"사회":14,"과학":10,"체육":10,"예술":10,"생활교양":16},
+            subjectMap: {"공통국어1": {"category": "국어", "type": "공통", "credit": 4, "grade": 1, "semester": 1}, "공통국어2": {"category": "국어", "type": "공통", "credit": 4, "grade": 1, "semester": 2}, "화법과 언어": {"category": "국어", "type": "일반", "credit": 4, "grade": 3, "semester": 1}, "독서와 작문": {"category": "국어", "type": "일반", "credit": 4, "grade": 2, "semester": 2}, "문학": {"category": "국어", "type": "일반", "credit": 4, "grade": 2, "semester": 1}, "공통수학1": {"category": "수학", "type": "공통", "credit": 4, "grade": 1, "semester": 1}, "공통수학2": {"category": "수학", "type": "공통", "credit": 4, "grade": 1, "semester": 2}, "대수": {"category": "수학", "type": "일반", "credit": 4, "grade": 2, "semester": 1}, "미적분 I": {"category": "수학", "type": "일반", "credit": 4, "grade": 2, "semester": 2}, "확률과 통계": {"category": "수학", "type": "일반", "credit": 4, "grade": 3, "semester": 1}, "공통영어1": {"category": "영어", "type": "공통", "credit": 4, "grade": 1, "semester": 1}, "공통영어2": {"category": "영어", "type": "공통", "credit": 3, "grade": 1, "semester": 2}, "영어 I": {"category": "영어", "type": "일반", "credit": 4, "grade": 2, "semester": 1}, "영어 II": {"category": "영어", "type": "일반", "credit": 4, "grade": 2, "semester": 2}, "심화 영어": {"category": "영어", "type": "진로", "credit": 4, "grade": 3, "semester": 1}, "한국사1": {"category": "사회", "type": "공통", "credit": 3, "grade": 1, "semester": 1}, "한국사2": {"category": "사회", "type": "공통", "credit": 3, "grade": 1, "semester": 2}, "통합사회1": {"category": "사회", "type": "공통", "credit": 4, "grade": 1, "semester": 1}, "통합사회2": {"category": "사회", "type": "공통", "credit": 4, "grade": 1, "semester": 2}, "통합과학1": {"category": "과학", "type": "공통", "credit": 4, "grade": 1, "semester": 1}, "통합과학2": {"category": "과학", "type": "공통", "credit": 4, "grade": 1, "semester": 2}, "과학탐구실험1": {"category": "과학", "type": "공통", "credit": 1, "grade": 1, "semester": 1}, "과학탐구실험2": {"category": "과학", "type": "공통", "credit": 1, "grade": 1, "semester": 2}, "체육1": {"category": "체육", "type": "일반", "credit": 2, "grade": 1, "semester": 1}, "체육2": {"category": "체육", "type": "일반", "credit": 2, "grade": 1, "semester": 2}, "스포츠 문화": {"category": "체육", "type": "진로", "credit": 1, "grade": 2, "semester": 1}, "스포츠 과학": {"category": "체육", "type": "진로", "credit": 1, "grade": 2, "semester": 2}, "스포츠 생활1": {"category": "체육", "type": "융합", "credit": 2, "grade": 3, "semester": 1}, "스포츠 생활2": {"category": "체육", "type": "융합", "credit": 2, "grade": 3, "semester": 2}, "음악": {"category": "예술", "type": "일반", "credit": 2, "grade": 1, "semester": 1}, "미술": {"category": "예술", "type": "일반", "credit": 2, "grade": 1, "semester": 1}, "음악 연주와 창작": {"category": "예술", "type": "진로", "credit": 2, "grade": 2, "semester": 1}, "미술 창작": {"category": "예술", "type": "진로", "credit": 2, "grade": 2, "semester": 1}, "정보*": {"category": "생활교양", "type": "일반", "credit": 3, "grade": 1, "semester": 2}, "정보와 디지털 문해력*": {"category": "생활교양", "type": "융합", "credit": 2, "grade": 1, "semester": 1}, "진로와 직업": {"category": "생활교양", "type": "일반", "credit": 2, "grade": 1, "semester": 1}, "세계시민과 지리": {"category": "사회", "type": "일반", "credit": 3, "grade": 2, "semester": 1}, "세계사": {"category": "사회", "type": "일반", "credit": 3, "grade": 2, "semester": 1}, "사회와 문화": {"category": "사회", "type": "일반", "credit": 3, "grade": 2, "semester": 1}, "현대사회와 윤리": {"category": "사회", "type": "일반", "credit": 3, "grade": 2, "semester": 1}, "물리학*": {"category": "과학", "type": "일반", "credit": 3, "grade": 2, "semester": 1}, "화학": {"category": "과학", "type": "일반", "credit": 3, "grade": 2, "semester": 1}, "생명과학": {"category": "과학", "type": "일반", "credit": 3, "grade": 2, "semester": 1}, "지구과학": {"category": "과학", "type": "일반", "credit": 3, "grade": 2, "semester": 1}, "역학과 에너지": {"category": "과학", "type": "진로", "credit": 3, "grade": 2, "semester": 2}, "물질과 에너지": {"category": "과학", "type": "진로", "credit": 3, "grade": 2, "semester": 2}, "세포와 물질대사": {"category": "과학", "type": "진로", "credit": 3, "grade": 2, "semester": 2}, "융합과학 탐구*": {"category": "과학", "type": "융합", "credit": 3, "grade": 2, "semester": 2}, "한국지리 탐구": {"category": "사회", "type": "진로", "credit": 3, "grade": 2, "semester": 2}, "동아시아 역사 기행": {"category": "사회", "type": "진로", "credit": 3, "grade": 2, "semester": 2}, "법과 사회": {"category": "사회", "type": "진로", "credit": 3, "grade": 2, "semester": 2}, "경제": {"category": "사회", "type": "진로", "credit": 3, "grade": 2, "semester": 2}, "윤리와 사상": {"category": "사회", "type": "진로", "credit": 3, "grade": 2, "semester": 2}, "사회문제 탐구*": {"category": "사회", "type": "융합", "credit": 3, "grade": 2, "semester": 2}, "주제 탐구 독서": {"category": "국어", "type": "진로", "credit": 3, "grade": 2, "semester": 1}, "기하": {"category": "수학", "type": "진로", "credit": 3, "grade": 2, "semester": 1}, "세계 문화와 영어": {"category": "영어", "type": "융합", "credit": 3, "grade": 2, "semester": 1}, "식품안전과 건강": {"category": "생활교양", "type": "진로(고시외)", "credit": 3, "grade": 2, "semester": 1}, "인공지능 기초*": {"category": "생활교양", "type": "진로", "credit": 3, "grade": 2, "semester": 1}, "프랑스어": {"category": "생활교양", "type": "일반", "credit": 3, "grade": 2, "semester": 1}, "일본어": {"category": "생활교양", "type": "일반", "credit": 3, "grade": 2, "semester": 1}, "데이터 과학*": {"category": "생활교양", "type": "진로", "credit": 3, "grade": 2, "semester": 2}, "언어생활 탐구": {"category": "국어", "type": "융합", "credit": 3, "grade": 2, "semester": 2}, "영어 발표와 토론": {"category": "영어", "type": "진로", "credit": 3, "grade": 2, "semester": 2}, "음악 감상과 비평": {"category": "예술", "type": "진로", "credit": 2, "grade": 3, "semester": 1}, "미술 감상과 비평": {"category": "예술", "type": "진로", "credit": 2, "grade": 3, "semester": 1}, "독서 토론과 글쓰기": {"category": "국어", "type": "융합", "credit": 3, "grade": 3, "semester": 1}, "미적분Ⅱ*": {"category": "수학", "type": "진로", "credit": 3, "grade": 3, "semester": 1}, "수학과제 탐구*": {"category": "수학", "type": "융합", "credit": 3, "grade": 3, "semester": 1}, "미디어 영어": {"category": "영어", "type": "융합", "credit": 3, "grade": 3, "semester": 1}, "도시의 미래 탐구": {"category": "사회", "type": "진로", "credit": 3, "grade": 3, "semester": 1}, "정치": {"category": "사회", "type": "진로", "credit": 3, "grade": 3, "semester": 1}, "인문학과 윤리": {"category": "사회", "type": "진로", "credit": 3, "grade": 3, "semester": 1}, "국제 관계의 이해": {"category": "사회", "type": "진로", "credit": 3, "grade": 3, "semester": 1}, "전자기와 양자": {"category": "과학", "type": "진로", "credit": 3, "grade": 3, "semester": 1}, "화학 반응의 세계": {"category": "과학", "type": "진로", "credit": 3, "grade": 3, "semester": 1}, "생물의 유전": {"category": "과학", "type": "진로", "credit": 3, "grade": 3, "semester": 1}, "행성우주과학": {"category": "과학", "type": "진로", "credit": 3, "grade": 3, "semester": 1}, "프랑스어권 문화": {"category": "생활교양", "type": "융합", "credit": 3, "grade": 3, "semester": 1}, "일본 문화": {"category": "생활교양", "type": "융합", "credit": 3, "grade": 3, "semester": 1}, "아동발달과 부모": {"category": "생활교양", "type": "융합", "credit": 3, "grade": 3, "semester": 1}, "빅 데이터 분석*": {"category": "생활교양", "type": "진로(전문)", "credit": 3, "grade": 3, "semester": 1}, "인공지능 프로그래밍 기초(파이선)*": {"category": "생활교양", "type": "진로(고시외)", "credit": 3, "grade": 3, "semester": 1}, "음악과 미디어": {"category": "예술", "type": "융합", "credit": 3, "grade": 3, "semester": 2}, "미술과 매체": {"category": "예술", "type": "융합", "credit": 3, "grade": 3, "semester": 2}, "문학과 영상": {"category": "국어", "type": "진로", "credit": 3, "grade": 3, "semester": 2}, "전문 수학": {"category": "수학", "type": "진로", "credit": 3, "grade": 3, "semester": 2}, "실용 통계": {"category": "수학", "type": "융합", "credit": 3, "grade": 3, "semester": 2}, "영미 문학 읽기": {"category": "영어", "type": "진로", "credit": 3, "grade": 3, "semester": 2}, "심화 영어 독해와 작문": {"category": "영어", "type": "진로", "credit": 3, "grade": 3, "semester": 2}, "여행지리": {"category": "사회", "type": "융합", "credit": 3, "grade": 3, "semester": 2}, "역사로 탐구하는 현대 세계": {"category": "사회", "type": "융합", "credit": 3, "grade": 3, "semester": 2}, "윤리문제 탐구*": {"category": "사회", "type": "융합", "credit": 3, "grade": 3, "semester": 2}, "과학의 역사와 문화": {"category": "과학", "type": "융합", "credit": 3, "grade": 3, "semester": 2}, "기후변화와 환경생태": {"category": "과학", "type": "융합", "credit": 3, "grade": 3, "semester": 2}, "프랑스어 회화": {"category": "생활교양", "type": "진로", "credit": 3, "grade": 3, "semester": 2}, "일본어 회화": {"category": "생활교양", "type": "진로", "credit": 3, "grade": 3, "semester": 2}}
+        };
+        appData.curriculumSets['2026'] = BUILTIN_CURRICULUM_2026;
+        BUILTIN_CURRICULUM_2026.requiredByCategoryAuto = { ...BUILTIN_CURRICULUM_2026.requiredByCategory };
+        BUILTIN_CURRICULUM_2026.selectionGroups = [{"id": "g9_48_57", "grade": 2, "semester": 2, "required": 3, "subjects": ["역학과 에너지", "물질과 에너지", "세포와 물질대사", "융합과학 탐구*", "한국지리 탐구", "동아시아 역사 기행", "법과 사회", "경제", "윤리와 사상", "사회문제 탐구*"]}, {"id": "g10_70_86", "grade": 3, "semester": 1, "required": 4, "subjects": ["독서 토론과 글쓰기", "미적분Ⅱ*", "수학과제 탐구*", "미디어 영어", "도시의 미래 탐구", "정치", "인문학과 윤리", "국제 관계의 이해", "전자기와 양자", "화학 반응의 세계", "생물의 유전", "행성우주과학", "프랑스어권 문화", "일본 문화", "아동발달과 부모", "빅 데이터 분석*", "인공지능 프로그래밍 기초(파이선)*"]}, {"id": "g11_84_100", "grade": 3, "semester": 2, "required": 8, "subjects": ["아동발달과 부모", "빅 데이터 분석*", "인공지능 프로그래밍 기초(파이선)*", "음악과 미디어", "미술과 매체", "문학과 영상", "전문 수학", "실용 통계", "영미 문학 읽기", "심화 영어 독해와 작문", "여행지리", "역사로 탐구하는 현대 세계", "윤리문제 탐구*", "과학의 역사와 문화", "기후변화와 환경생태", "프랑스어 회화", "일본어 회화"]}, {"id": "g8_58_64", "grade": 2, "semester": 1, "required": 2, "subjects": ["주제 탐구 독서", "기하", "세계 문화와 영어", "식품안전과 건강", "인공지능 기초*", "프랑스어", "일본어"]}, {"id": "g10_68_69", "grade": 3, "semester": 1, "required": 1, "subjects": ["음악 감상과 비평", "미술 감상과 비평"]}, {"id": "g8_40_47", "grade": 2, "semester": 1, "required": 3, "subjects": ["세계시민과 지리", "세계사", "사회와 문화", "현대사회와 윤리", "물리학*", "화학", "생명과학", "지구과학"]}, {"id": "g9_61_67", "grade": 2, "semester": 2, "required": 2, "subjects": ["식품안전과 건강", "인공지능 기초*", "프랑스어", "일본어", "데이터 과학*", "언어생활 탐구", "영어 발표와 토론"]}, {"id": "g6_38_39", "grade": 1, "semester": 1, "required": 1, "subjects": ["정보와 디지털 문해력*", "진로와 직업"]}];
+
+        function activeCurriculum() {
+            return appData.curriculumSets[appData.activeCurriculumYear] || BUILTIN_CURRICULUM_2026;
+        }
+
+        function curriculumForStudent(st) {
+            return appData.curriculumSets[st.admissionYear] || activeCurriculum();
+        }
+
+        function blankCurriculum(year) {
+            return {
+                sourceFileName: '(편성표 미업로드)',
+                sourceSheetName: null,
+                rules: { basicMax: 22, lifeMin: 11 },
+                commonSubjects: [],
+                mandatoryByGrade: { 1: [], 2: [], 3: [] },
+                requiredByCategory: {},
+                requiredByCategoryAuto: {},
+                subjectMap: {},
+                selectionGroups: []
+            };
+        }
+
+        // =====================================================================
+        // 입학년도 관리 (임의의 연도를 자유롭게 추가/삭제/전환)
+        // =====================================================================
+        function addAdmissionYear() {
+            const input = document.getElementById('newYearInput');
+            const year = String(input.value || '').trim();
+            if (!/^[0-9]{4}$/.test(year)) {
+                alert('입학년도는 4자리 숫자로 입력해주세요. (예: 2028)');
+                return;
+            }
+            if (!appData.curriculumSets[year]) {
+                appData.curriculumSets[year] = blankCurriculum(year);
+            }
+            appData.activeCurriculumYear = year;
+            input.value = '';
+            refreshCurriculumYearUI();
+            saveToLocalStorage();
+        }
+
+        function selectAdmissionYear(year) {
+            if (!appData.curriculumSets[year]) return;
+            appData.activeCurriculumYear = year;
+            refreshCurriculumYearUI();
+        }
+
+        function deleteAdmissionYear(year) {
+            const usedByStudents = Object.values(appData.students).some(s => s.admissionYear === year);
+            const msg = usedByStudents
+                ? `${year}학년도 편성표를 사용 중인 학생이 있습니다. 그래도 삭제할까요? (해당 학생들은 다른 연도 편성표로 재검증됩니다)`
+                : `${year}학년도 편성표를 삭제할까요?`;
+            if (!confirm(msg)) return;
+            delete appData.curriculumSets[year];
+            const remainingYears = Object.keys(appData.curriculumSets);
+            if (remainingYears.length === 0) {
+                appData.curriculumSets['2026'] = BUILTIN_CURRICULUM_2026;
+                appData.activeCurriculumYear = '2026';
+            } else if (appData.activeCurriculumYear === year) {
+                appData.activeCurriculumYear = remainingYears.sort()[0];
+            }
+            if (Object.keys(appData.students).length > 0) { validateAllStudents(); renderDashboard(); }
+            refreshCurriculumYearUI();
+            saveToLocalStorage();
+        }
+
+        function refreshCurriculumYearUI() {
+            renderYearPillList();
+            updateActiveCurriculumLabel();
+            renderCurriculumPreview();
+            renderRequiredCreditsTable();
+            renderStudentAdmissionYearSelect();
+            const cur = activeCurriculum();
+            document.getElementById('ruleBasicMax').value = cur.rules.basicMax;
+            document.getElementById('ruleLifeMin').value = cur.rules.lifeMin;
+            document.getElementById('curriculumUploadYearLabel').innerText = `${appData.activeCurriculumYear}학년도`;
+
+            // 연도를 바꿔도 파일 입력창은 브라우저가 자동으로 비워주지 않아 예전 파일명이
+            // 그대로 남아 헷갈리므로, 연도 전환 시 선택된 파일을 초기화하고 현재 연도의
+            // 실제 반영 상태를 다시 안내합니다.
+            const fileInput = document.getElementById('curriculumFileInput');
+            if (fileInput) fileInput.value = '';
+            const statusBox = document.getElementById('curriculumParseStatus');
+            if (statusBox) {
+                const hasData = Object.keys(cur.subjectMap).length > 0;
+                statusBox.innerHTML = hasData
+                    ? `<span class="text-slate-500"><i class="fa-solid fa-circle-info mr-1"></i>현재 ${appData.activeCurriculumYear}학년도에 반영된 편성표: ${cur.sourceFileName}${cur.sourceSheetName ? ` (시트: ${cur.sourceSheetName})` : ''} — 과목 ${Object.keys(cur.subjectMap).length}개. 다른 파일로 바꾸려면 새로 선택 후 업로드하세요.</span>`
+                    : `<span class="text-amber-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${appData.activeCurriculumYear}학년도는 아직 편성표가 업로드되지 않았습니다. 파일을 선택하고 [편성표 반영] 버튼을 눌러주세요.</span>`;
+            }
+        }
+
+        function renderYearPillList() {
+            const box = document.getElementById('yearPillList');
+            const years = Object.keys(appData.curriculumSets).sort();
+            box.innerHTML = years.map(y => {
+                const active = y === appData.activeCurriculumYear;
+                const cur = appData.curriculumSets[y];
+                const hasData = Object.keys(cur.subjectMap).length > 0;
+                return `<span class="inline-flex items-center gap-1 ${active ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 border border-slate-300'} text-xs px-3 py-1.5 rounded-full">
+                    <button onclick="selectAdmissionYear('${y}')" class="font-bold">${y}학년도 ${hasData ? '' : '<i class=\'fa-solid fa-circle-exclamation text-amber-400 ml-1\'></i>'}</button>
+                    <button onclick="deleteAdmissionYear('${y}')" class="${active ? 'text-indigo-200 hover:text-white' : 'text-slate-400 hover:text-rose-500'} ml-1"><i class="fa-solid fa-xmark"></i></button>
+                </span>`;
+            }).join('');
+        }
+
+        function renderStudentAdmissionYearSelect() {
+            const sel = document.getElementById('studentAdmissionYearSelect');
+            if (!sel) return;
+            const current = sel.value;
+            const years = Object.keys(appData.curriculumSets).sort();
+            sel.innerHTML = years.map(y => `<option value="${y}">${y}학년도 입학생</option>`).join('');
+            sel.value = years.includes(current) ? current : appData.activeCurriculumYear;
+        }
+
+        // 입학년도를 바꾸면 이전 연도용으로 선택해둔 파일이 새 연도에도 그대로 적용될
+        // 것처럼 헷갈리게 남아있지 않도록, 파일 선택을 초기화하고 현재 상태를 안내합니다.
+        function onStudentAdmissionYearChange() {
+            const g2 = document.getElementById('grade2ExcelInput');
+            const g3 = document.getElementById('grade3ExcelInput');
+            if (g2) g2.value = '';
+            if (g3) g3.value = '';
+            const year = document.getElementById('studentAdmissionYearSelect').value;
+            const cur = appData.curriculumSets[year];
+            const existingCount = Object.values(appData.students).filter(s => s.admissionYear === year).length;
+            const statusBox = document.getElementById('studentParseStatus');
+            if (!statusBox) return;
+            let msg = `<span class="text-slate-500"><i class="fa-solid fa-circle-info mr-1"></i>${year}학년도 입학생으로 전환했습니다. 파일 선택이 초기화되었으니 이 연도의 수강신청 파일을 다시 선택해주세요.`;
+            if (existingCount > 0) msg += ` (현재 ${year}학년도로 등록된 학생 ${existingCount}명 있음)`;
+            if (!cur || Object.keys(cur.subjectMap).length === 0) msg += ` <strong class="text-amber-600">⚠ 이 연도는 편성표가 아직 없습니다 — "교육과정 편성표" 탭에서 먼저 업로드해주세요.</strong>`;
+            msg += '</span>';
+            statusBox.innerHTML = msg;
+        }
+
+        // =====================================================================
+        // 교과(군)별 필수 이수학점 관리
+        // =====================================================================
+        function renderRequiredCreditsTable() {
+            const cur = activeCurriculum();
+            document.getElementById('requiredCreditYearLabel').innerText = `${appData.activeCurriculumYear}학년도`;
+            const body = document.getElementById('requiredCreditsTableBody');
+            const entries = Object.entries(cur.requiredByCategory || {});
+            if (entries.length === 0) {
+                body.innerHTML = `<tr><td colspan="3" class="text-center text-slate-400 py-4">등록된 필수 이수학점이 없습니다. 편성표를 업로드해 자동 추출하거나 "교과군 추가"로 직접 입력하세요.</td></tr>`;
+                return;
+            }
+            body.innerHTML = entries.map(([cat, credit]) => `
+                <tr>
+                    <td class="px-3 py-1.5"><input type="text" value="${cat}" class="req-cat-input w-full border border-slate-100 rounded px-2 py-1"></td>
+                    <td class="px-3 py-1.5"><input type="number" value="${credit}" min="0" class="req-credit-input w-full border border-slate-100 rounded px-2 py-1"></td>
+                    <td class="px-3 py-1.5 text-center"><button onclick="this.closest('tr').remove()" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i></button></td>
+                </tr>`).join('');
+        }
+
+        function addRequiredCreditRow() {
+            const body = document.getElementById('requiredCreditsTableBody');
+            if (body.children.length === 1 && body.children[0].children.length === 1) body.innerHTML = ''; // 빈 안내행 제거
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="px-3 py-1.5"><input type="text" placeholder="교과군명" class="req-cat-input w-full border border-slate-100 rounded px-2 py-1"></td>
+                <td class="px-3 py-1.5"><input type="number" placeholder="0" min="0" class="req-credit-input w-full border border-slate-100 rounded px-2 py-1"></td>
+                <td class="px-3 py-1.5 text-center"><button onclick="this.closest('tr').remove()" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i></button></td>`;
+            body.appendChild(tr);
+        }
+
+        function resetRequiredCreditsFromCurriculum() {
+            const cur = activeCurriculum();
+            cur.requiredByCategory = { ...(cur.requiredByCategoryAuto || {}) };
+            renderRequiredCreditsTable();
+        }
+
+        function applyRequiredCredits() {
+            const cur = activeCurriculum();
+            const rows = document.querySelectorAll('#requiredCreditsTableBody tr');
+            const result = {};
+            rows.forEach(row => {
+                const catInput = row.querySelector('.req-cat-input');
+                const creditInput = row.querySelector('.req-credit-input');
+                if (!catInput || !creditInput) return;
+                const cat = catInput.value.trim();
+                const credit = parseFloat(creditInput.value);
+                if (cat && !isNaN(credit)) result[cat] = credit;
+            });
+            cur.requiredByCategory = result;
+            renderRequiredCreditsTable();
+            if (Object.keys(appData.students).length > 0) { validateAllStudents(); renderDashboard(); }
+            alert('교과(군)별 필수 이수학점이 저장되었습니다.');
+            saveToLocalStorage();
+        }
+
+        // =====================================================================
+        // UTILITIES
+        // =====================================================================
+        function normalizeCategory(cat) {
+            if (!cat) return '기타';
+            let c = String(cat).replace(/\s+/g, '');
+            // 생활교양 계열 키워드는 접두어가 아니라 포함 여부로 판단 (예: '기술・가정/정보')
+            if (c.includes('기술') || c.includes('정보') || c.includes('외국어') || c.includes('한문') || c.includes('교양')) return '생활교양';
+            // 나머지는 접두어로 판단 (예: '사회\n(역사/도덕포함)' → '사회')
+            const prefixes = ['국어', '수학', '영어', '사회', '과학', '체육', '예술'];
+            const matched = prefixes.find(p => c.startsWith(p));
+            return matched || '기타';
+        }
+
+        // 워크북 안에서 실제 편성표 데이터가 들어있는 시트를 자동으로 찾습니다.
+        // (파일에 "총론", "양식 안내" 등 헤더 구조는 같지만 내용이 비어있거나
+        // 예시일 뿐인 참고용 시트가 함께 들어있는 경우가 많습니다. 헤더 구조가
+        // 일치하는 시트가 여러 개면, 실제로 파싱되는 과목 수가 가장 많은
+        // 시트를 최종 선택해 빈 양식/예시 시트를 피합니다.)
+        function findCurriculumSheet(wb) {
+            let candidates = [];
+            for (const name of wb.SheetNames) {
+                const ws = wb.Sheets[name];
+                const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+                for (let r = 0; r < Math.min(aoa.length, 10); r++) {
+                    const row = aoa[r] || [];
+                    const hasGubun = row.some(v => v !== null && String(v).trim() === '구분');
+                    const hasSubjectCol = row.some(v => v !== null && String(v).replace(/\s+/g, '') === '세부교과목');
+                    if (hasGubun && hasSubjectCol) { candidates.push({ name, ws, aoa }); break; }
+                }
+            }
+            if (candidates.length === 0) {
+                // 구조를 찾지 못하면 마지막 시트를 사용 (편성표는 보통 참고 시트 뒤에 배치됨)
+                const fallbackName = wb.SheetNames[wb.SheetNames.length - 1];
+                const fallbackWs = wb.Sheets[fallbackName];
+                return { name: fallbackName, ws: fallbackWs, aoa: XLSX.utils.sheet_to_json(fallbackWs, { header: 1, defval: null, raw: true }) };
+            }
+            if (candidates.length === 1) return candidates[0];
+            // 후보가 여러 개면 실제로 파싱되는 과목 수가 가장 많은 시트를 채택
+            let best = candidates[0];
+            let bestCount = -1;
+            candidates.forEach(cand => {
+                const parsed = parseCurriculumAOA(cand.aoa.slice(), cand.ws);
+                const count = Object.keys(parsed.subjectMap).length;
+                if (count > bestCount) { bestCount = count; best = cand; }
+            });
+            return best;
+        }
+
+        function readWorkbookFromFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const wb = XLSX.read(data, { type: 'array' });
+                        resolve(wb);
+                    } catch (err) { reject(err); }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // =====================================================================
+        // CURRICULUM PARSER
+        // =====================================================================
+        // 편성표 엑셀은 "학교지정(전원 필수, 학기별 고정 배치)" 과목과
+        // "학생선택(택N, 실제 수강신청 대상)" 과목이 함께 나열되어 있습니다.
+        // 학기 배치 칸(1학년1학기~3학년2학기, 총 6칸)에 순수 숫자만 있으면
+        // 대안 없이 고정 배치된 학교지정 과목이고, 괄호/'택N' 문구가 섞인
+        // 문자열이면 학생이 고르는 선택군(같은 문구가 병합되어 여러 행에 걸침)입니다.
+        // 이 로직으로 대수/미적분Ⅰ/확률과 통계/문학/영어Ⅰ·Ⅱ 등 "학교지정"
+        // 과목을 자동으로 전원에게 부여해, 수강신청 엑셀에 나타나지 않는데도
+        // 실제로는 모두가 이수하는 과목이 선수과목 위계 오류로 잘못 잡히는 것을 방지합니다.
+        function flattenMergedAOA(ws, aoa) {
+            // 교과(군, B열)와 학기 배치칸(G~L열)만 병합 해제 대상입니다.
+            // A(구분)·C(과목유형)·D(세부교과목)·E/F(학점) 열은 절대 병합 해제하지 않습니다 —
+            // "교과 이수 학점 소계", "창의적 체험활동" 같은 하단 요약행이 A~D 열을 합쳐서
+            // 쓰는 경우가 있는데, 이 열들까지 병합 해제하면 요약행 텍스트가 과목명/학점
+            // 칸으로 새어 들어와 존재하지 않는 가짜 과목이 생성됩니다.
+            const flattenCols = new Set([1, 6, 7, 8, 9, 10, 11]); // B, G, H, I, J, K, L (0-indexed)
+            const merges = ws['!merges'] || [];
+            merges.forEach(m => {
+                if (m.s.c !== m.e.c) return; // 여러 열에 걸친 병합(A~D, A~F 등 요약행)은 건드리지 않음
+                if (!flattenCols.has(m.s.c)) return;
+                const anchorRow = aoa[m.s.r] || [];
+                const val = anchorRow[m.s.c];
+                for (let r = m.s.r; r <= m.e.r; r++) {
+                    if (!aoa[r]) aoa[r] = [];
+                    aoa[r][m.s.c] = val;
+                }
+            });
+            return aoa;
+        }
+
+        function detectMandatoryGrade(row) {
+            // G~L (index 6~11) = 1학년1학기 ~ 3학년2학기, 두 칸씩 한 학년
+            const semesterCells = row.slice(6, 12);
+            const hasChoiceMarker = semesterCells.some(v => typeof v === 'string');
+            if (hasChoiceMarker) return null; // 학생선택(택N) 과목 → 자동 배정 대상 아님
+            for (let i = 0; i < 6; i++) {
+                if (typeof semesterCells[i] === 'number') return Math.floor(i / 2) + 1;
+            }
+            return null; // 배치 정보 없음(소계 등 비과목 행) → 무시
+        }
+
+        // 학교지정/학생선택 여부와 무관하게, 이 과목이 배치된 학기 칸(G~L 중 값이 있는 칸)으로
+        // "몇 학년에 개설되는 과목인지"를 판별합니다. 학생선택 과목은 실제로 신청 가능한 학년이
+        // 정해져 있으므로(예: 2학년 1학기 택3 그룹, 3학년 2학기 택8 그룹 등), 이 값을 이용해
+        // "학생별 교과 신청" 화면에서 학년 탭에 맞는 과목만 보여줄 수 있습니다.
+        function detectSubjectGrade(row) {
+            const semesterCells = row.slice(6, 12);
+            for (let i = 0; i < 6; i++) {
+                if (semesterCells[i] !== null && semesterCells[i] !== undefined && semesterCells[i] !== '') {
+                    return Math.floor(i / 2) + 1;
+                }
+            }
+            return null;
+        }
+
+        // 위와 같은 방식으로 "몇 학기(1학기/2학기)에 개설되는 과목인지"도 함께 판별합니다.
+        // G,I,K(짝수 인덱스 6,8,10) = 1학기 / H,J,L(홀수 인덱스 7,9,11) = 2학기
+        function detectSubjectSemester(row) {
+            const semesterCells = row.slice(6, 12);
+            for (let i = 0; i < 6; i++) {
+                if (semesterCells[i] !== null && semesterCells[i] !== undefined && semesterCells[i] !== '') {
+                    return (i % 2) + 1;
+                }
+            }
+            return null;
+        }
+
+        // 편성표의 "택N" 병합 셀(예: "9(택3)")을 이용해, 실제 학생선택 과목이 묶인
+        // 선택군(선택 그룹)을 추출합니다. 같은 그룹에 속한 과목들 중 정확히 N개를
+        // 선택해야 한다는 정보를 "학생별 교과 신청" 화면에서 실시간으로 보여주기 위함입니다.
+        function extractSelectionGroups(ws, flatAoa) {
+            const merges = ws['!merges'] || [];
+            const groups = [];
+            merges.forEach(m => {
+                if (m.s.c < 6 || m.s.c > 11) return; // 학기 배치 칸(G~L)만 대상
+                const anchorRow = flatAoa[m.s.r] || [];
+                const val = anchorRow[m.s.c];
+                if (typeof val !== 'string') return;
+                const match = val.match(/택\s*(\d+)/);
+                if (!match) return; // "택N" 표기가 없으면 선택군이 아님(단순 병합 등)
+                const required = parseInt(match[1], 10);
+                const subjects = [];
+                for (let r = m.s.r; r <= m.e.r; r++) {
+                    const name = (flatAoa[r] || [])[3];
+                    if (typeof name === 'string' && name.trim()) subjects.push(name.trim());
+                }
+                if (subjects.length > 0) {
+                    groups.push({
+                        id: `g${m.s.c}_${m.s.r}_${m.e.r}`,
+                        grade: Math.floor((m.s.c - 6) / 2) + 1,
+                        semester: ((m.s.c - 6) % 2) + 1,
+                        required,
+                        subjects
+                    });
+                }
+            });
+            return groups;
+        }
+
+        function parseCurriculumAOA(aoa, ws) {
+            if (ws) aoa = flattenMergedAOA(ws, aoa);
+            let subjectMap = {};
+            let commonSubjects = [];
+            let mandatoryByGrade = { 1: [], 2: [], 3: [] };
+            let requiredByCategory = {};
+            let lastCategory = null;
+            for (const row of aoa) {
+                const catRaw = row[1];
+                const type = row[2];
+                const name = row[3];
+                const baseCredit = row[4];
+                const opCredit = row[5];
+                const reqCreditRaw = row[13]; // N열: 필수학점 (교과군별 3개년 최소 이수학점, 병합 anchor 행에만 값이 있음)
+                if (catRaw !== undefined && catRaw !== null && String(catRaw).trim() !== '') {
+                    lastCategory = normalizeCategory(catRaw);
+                }
+                if (typeof name !== 'string' || !name.trim()) continue;
+                if (typeof baseCredit !== 'number') continue;
+                const cleanName = name.trim();
+                const credit = typeof opCredit === 'number' ? opCredit : baseCredit;
+                const subjectGrade = detectSubjectGrade(row);
+                const subjectSemester = detectSubjectSemester(row);
+                subjectMap[cleanName] = { category: lastCategory || '기타', type: type || '일반', credit, grade: subjectGrade, semester: subjectSemester };
+                if (type === '공통') commonSubjects.push(cleanName);
+
+                const mandatoryGrade = detectMandatoryGrade(row);
+                if (mandatoryGrade) mandatoryByGrade[mandatoryGrade].push(cleanName);
+
+                // N열 값은 병합 anchor 행에만 있으므로(자동으로 미병합 상태) 블록당 정확히 1회만 더해짐
+                if (typeof reqCreditRaw === 'number') {
+                    const cat = lastCategory || '기타';
+                    requiredByCategory[cat] = (requiredByCategory[cat] || 0) + reqCreditRaw;
+                }
+            }
+            const selectionGroups = ws ? extractSelectionGroups(ws, aoa) : [];
+            const allText = aoa.flat().filter(v => typeof v === 'string').join('\n');
+            let rules = { basicMax: 22, lifeMin: 11 };
+            let m1 = allText.match(/(\d+)\s*학점\s*초과\s*선택\s*불가/);
+            if (m1) rules.basicMax = parseInt(m1[1]);
+            let m2 = allText.match(/(\d+)\s*학점\s*이상\s*선택\s*필수/);
+            if (m2) rules.lifeMin = parseInt(m2[1]);
+            return { subjectMap, commonSubjects, mandatoryByGrade, requiredByCategory, rules, selectionGroups };
+        }
+
+        async function parseCurriculumExcel() {
+            const fileInput = document.getElementById('curriculumFileInput');
+            const statusBox = document.getElementById('curriculumParseStatus');
+            const year = appData.activeCurriculumYear;
+
+            if (!fileInput.files.length) {
+                alert('업로드할 교육과정 편성표 엑셀 파일을 선택해주세요.');
+                return;
+            }
+            const file = fileInput.files[0];
+            statusBox.innerHTML = `<span class="text-indigo-600"><i class="fa-solid fa-spinner fa-spin mr-1"></i>${file.name} 파싱 중...</span>`;
+
+            try {
+                const wb = await readWorkbookFromFile(file);
+                const { name: sheetName, ws, aoa } = findCurriculumSheet(wb);
+                const parsed = parseCurriculumAOA(aoa, ws);
+
+                if (Object.keys(parsed.subjectMap).length === 0) {
+                    statusBox.innerHTML = `<span class="text-rose-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>과목 데이터를 찾지 못했습니다. (검사한 시트: "${sheetName}") '구분·교과(군)·과목유형·세부교과목·기본학점·운영학점' 열 구조를 확인해주세요.</span>`;
+                    return;
+                }
+
+                appData.curriculumSets[year] = {
+                    sourceFileName: file.name,
+                    sourceSheetName: sheetName,
+                    rules: parsed.rules,
+                    commonSubjects: parsed.commonSubjects,
+                    mandatoryByGrade: parsed.mandatoryByGrade,
+                    requiredByCategory: { ...parsed.requiredByCategory },
+                    requiredByCategoryAuto: { ...parsed.requiredByCategory },
+                    subjectMap: parsed.subjectMap,
+                    selectionGroups: parsed.selectionGroups || []
+                };
+                appData.activeCurriculumYear = year;
+
+                document.getElementById('ruleBasicMax').value = parsed.rules.basicMax;
+                document.getElementById('ruleLifeMin').value = parsed.rules.lifeMin;
+
+                const mCount = parsed.mandatoryByGrade[1].length + parsed.mandatoryByGrade[2].length + parsed.mandatoryByGrade[3].length;
+                statusBox.innerHTML = `<span class="text-emerald-600"><i class="fa-solid fa-circle-check mr-1"></i>${file.name} (시트: "${sheetName}") 반영 완료 — 과목 ${Object.keys(parsed.subjectMap).length}개, 학교지정(자동부여) 과목 ${mCount}개(1학년 ${parsed.mandatoryByGrade[1].length}·2학년 ${parsed.mandatoryByGrade[2].length}·3학년 ${parsed.mandatoryByGrade[3].length}), 국수영 상한 ${parsed.rules.basicMax}학점 / 생활교양 하한 ${parsed.rules.lifeMin}학점, 교과군별 필수학점 ${Object.keys(parsed.requiredByCategory).length}개 항목 자동 인식</span>`;
+
+                renderYearPillList();
+                renderRequiredCreditsTable();
+                renderStudentAdmissionYearSelect();
+                renderCurriculumPreview();
+                if (Object.keys(appData.students).length > 0) {
+                    validateAllStudents();
+                    renderDashboard();
+                }
+                updateActiveCurriculumLabel();
+                saveToLocalStorage();
+            } catch (err) {
+                console.error(err);
+                statusBox.innerHTML = `<span class="text-rose-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>파싱 오류: ${err.message}</span>`;
+            }
+        }
+
+        function applyRuleThresholds() {
+            const cur = activeCurriculum();
+            cur.rules.basicMax = parseFloat(document.getElementById('ruleBasicMax').value) || cur.rules.basicMax;
+            cur.rules.lifeMin = parseFloat(document.getElementById('ruleLifeMin').value) || cur.rules.lifeMin;
+            if (Object.keys(appData.students).length > 0) {
+                validateAllStudents();
+                renderDashboard();
+            }
+            alert(`기준이 적용되었습니다. (국수영 선택 상한 ${cur.rules.basicMax}학점 / 생활교양 선택 하한 ${cur.rules.lifeMin}학점)`);
+            saveToLocalStorage();
+        }
+
+        function updateActiveCurriculumLabel() {
+            const cur = activeCurriculum();
+            const sheetPart = cur.sourceSheetName ? ` (시트: ${cur.sourceSheetName})` : '';
+            const el = document.getElementById('activeCurriculumLabel');
+            if (el) {
+                el.innerText = `현재 적용 중인 편성표: ${appData.activeCurriculumYear}학년도 입학생 — ${cur.sourceFileName}${sheetPart}`;
+            }
+        }
+
+        function renderCurriculumPreview() {
+            const cur = activeCurriculum();
+            const entries = Object.entries(cur.subjectMap);
+            const byCat = {};
+            entries.forEach(([name, info]) => {
+                byCat[info.category] = byCat[info.category] || [];
+                byCat[info.category].push(`${name}(${info.credit})`);
+            });
+            let html = `<div class="mb-2 text-slate-600">총 <strong>${entries.length}개</strong> 과목 · 학교지정(자동부여) <strong>${cur.mandatoryByGrade ? cur.mandatoryByGrade[1].length + cur.mandatoryByGrade[2].length + cur.mandatoryByGrade[3].length : cur.commonSubjects.length}개</strong> (1학년 ${cur.mandatoryByGrade ? cur.mandatoryByGrade[1].length : cur.commonSubjects.length}·2학년 ${cur.mandatoryByGrade ? cur.mandatoryByGrade[2].length : 0}·3학년 ${cur.mandatoryByGrade ? cur.mandatoryByGrade[3].length : 0}) · 국수영 선택 상한 <strong>${cur.rules.basicMax}학점</strong> · 생활교양 선택 하한 <strong>${cur.rules.lifeMin}학점</strong></div>`;
+            html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-2">';
+            Object.keys(byCat).sort().forEach(cat => {
+                html += `<div class="border border-slate-100 rounded-lg p-2 bg-slate-50"><strong class="text-slate-700">${cat}</strong> <span class="text-slate-400">(${byCat[cat].length})</span><div class="text-slate-500 mt-1">${byCat[cat].join(', ')}</div></div>`;
+            });
+            html += '</div>';
+            document.getElementById('curriculumPreview').innerHTML = html;
+            const dbCountEl = document.getElementById('nationalDbCount');
+            if (dbCountEl) dbCountEl.innerText = Object.keys(NATIONAL_SUBJECT_DB).length;
+        }
+
+        // =====================================================================
+        // STUDENT EXCEL PARSER (수강신청 엑셀 - 학번/이름/성별 헤더 + 과목명 매트릭스 형식)
+        // =====================================================================
+        // 학교마다 수강신청/반편성 엑셀에서 "과목명 뒤에 오는" 관리용 열(배정 인원,
+        // 미배정, 판정, 신학번 등)을 과목으로 착각하지 않도록 제외하는 목록입니다.
+        const NON_SUBJECT_TRAILING_LABELS = new Set(['배정', '미배정', '미배정 타임', '판정', '비고', '합계', '신학번', '타임', '결과']);
+
+        function parseStudentAOA(aoa) {
+            let headerRowIdx = -1, idCol = -1, nameCol = -1, genderCol = -1, metaMaxCol = -1;
+            const metaLabels = ['순번', '학번', '이름', '성별', '과정', '메모', '과목수'];
+
+            for (let r = 0; r < Math.min(aoa.length, 15); r++) {
+                const row = aoa[r] || [];
+                const idIdx = row.findIndex(v => v !== null && String(v).trim() === '학번');
+                if (idIdx !== -1) {
+                    headerRowIdx = r;
+                    idCol = idIdx;
+                    row.forEach((v, c) => {
+                        if (v === null || v === undefined) return;
+                        const s = String(v).trim();
+                        if (s === '이름') nameCol = c;
+                        if (s === '성별') genderCol = c;
+                        if (metaLabels.includes(s) && c > metaMaxCol) metaMaxCol = c;
+                    });
+                    break;
+                }
+            }
+            if (headerRowIdx === -1) {
+                return { error: '이 파일에서 "학번" 헤더를 찾지 못했습니다. 학교 표준 수강신청 엑셀 양식인지 확인해주세요.' };
+            }
+
+            const headerRow = aoa[headerRowIdx] || [];
+            // "1학기 [택3]" 같은 택N 그룹 안내 문구는 병합 셀의 흔적으로 헤더 행에 섞여
+            // 들어오는 경우가 있어, 실제 과목명이 아니라 안내문임을 패턴으로도 걸러냅니다.
+            const looksLikeGroupLabel = v => /\[\s*택\s*\d+\s*\]/.test(v) || /^\d+\s*학기\s*\[/.test(v);
+            // 같은 헤더 행에서 "N학기 [택M]" 라벨은 그 오른쪽으로 다음 라벨이 나오기 전까지의
+            // 과목 열들이 몇 학기 소속인지 알려줍니다(병합 셀의 왼쪽 끝에만 값이 남아있으므로,
+            // 해당 열에서 왼쪽으로 스캔해 가장 가까운 라벨을 찾습니다). 같은 과목명이 1학기·2학기
+            // 풀에 중복으로 나오는 경우(예: "인공지능 기초*") 이 정보로 정확히 구분합니다.
+            const semesterHintForCol = c => {
+                for (let cc = c; cc >= metaMaxCol + 1; cc--) {
+                    const v = headerRow[cc];
+                    if (typeof v === 'string' && v.trim()) {
+                        const m = v.trim().match(/(\d)\s*학기/);
+                        return m ? parseInt(m[1], 10) : null;
+                    }
+                }
+                return null;
+            };
+            const buildSubjectCols = row => {
+                const cols = [];
+                for (let c = metaMaxCol + 1; c < row.length; c++) {
+                    const v = row[c];
+                    if (typeof v === 'string' && v.trim() && !NON_SUBJECT_TRAILING_LABELS.has(v.trim()) && !looksLikeGroupLabel(v.trim())) {
+                        cols.push({ col: c, name: v.trim(), semesterHint: semesterHintForCol(c) });
+                    }
+                }
+                return cols;
+            };
+
+            // 형식 A(기존): [학번 등 메타 헤더] 행 다음 줄에 과목명이 별도로 나열됨 (택N 그룹 표기 포함)
+            // 형식 B(이동반 편성 등): 헤더 행 자체에 학번 옆으로 과목명이 바로 이어짐 → 그 다음 줄부터 바로 학생 데이터
+            // 두 형식을 "헤더 행에 문자열이 있는지"로만 판별하면 형식 A의 "1학기 [택3]" 같은
+            // 병합 그룹 안내 문구를 과목명으로 착각해 형식 B로 잘못 인식할 수 있습니다.
+            // 더 확실한 신호는 "헤더 바로 다음 행에 실제 학번(정수)이 나오는가"입니다.
+            const probeRow = aoa[headerRowIdx + 1] || [];
+            const nextRowLooksLikeData = typeof probeRow[idCol] === 'number' && Number.isInteger(probeRow[idCol]);
+
+            let subjectCols, dataStartRow;
+            if (nextRowLooksLikeData) {
+                subjectCols = buildSubjectCols(headerRow);
+                dataStartRow = headerRowIdx + 1; // 형식 B: 헤더 바로 다음 행부터 학생 데이터
+            } else {
+                subjectCols = buildSubjectCols(probeRow);
+                dataStartRow = headerRowIdx + 2; // 형식 A: 과목명 행 다음 행부터 학생 데이터
+            }
+            if (subjectCols.length === 0) {
+                return { error: '과목명 열을 찾지 못했습니다. 헤더 행 또는 그 다음 행에 과목명이 나열되어 있는지 확인해주세요.' };
+            }
+
+            const rows = [];
+            for (let r = dataStartRow; r < aoa.length; r++) {
+                const row = aoa[r] || [];
+                const idVal = row[idCol];
+                if (typeof idVal !== 'number' || !Number.isInteger(idVal)) continue; // skip 합계/공백 행
+                const subjects = [];
+                const subjectsBySemester = { 1: [], 2: [] };
+                subjectCols.forEach(sc => {
+                    if (!row[sc.col]) return;
+                    subjects.push(sc.name);
+                    if (sc.semesterHint === 1 || sc.semesterHint === 2) subjectsBySemester[sc.semesterHint].push(sc.name);
+                });
+                rows.push({
+                    id: String(idVal),
+                    name: nameCol !== -1 ? (row[nameCol] || '') : '',
+                    gender: genderCol !== -1 ? (row[genderCol] || '') : '',
+                    subjects,
+                    subjectsBySemester
+                });
+            }
+            return { headerRowIdx, subjectCols, rows };
+        }
+
+        function clearFileInput(inputId) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            input.value = '';
+            const label = inputId === 'grade2ExcelInput' ? '2학년' : '3학년';
+            document.getElementById('studentParseStatus').innerHTML = `<span class="text-slate-500">${label} 파일 선택이 초기화되었습니다.</span>`;
+        }
+
+        async function parseStudentExcels() {
+            const g2Files = Array.from(document.getElementById('grade2ExcelInput').files);
+            const g3Files = Array.from(document.getElementById('grade3ExcelInput').files);
+            const statusBox = document.getElementById('studentParseStatus');
+            const admissionYear = document.getElementById('studentAdmissionYearSelect').value || appData.activeCurriculumYear;
+
+            if (g2Files.length === 0 && g3Files.length === 0) {
+                alert('업로드할 수강신청 엑셀 파일을 선택해주세요. (없으면 [기존 테스트 데이터 사용]을 눌러주세요)');
+                return;
+            }
+
+            statusBox.innerHTML = `<span class="text-indigo-600"><i class="fa-solid fa-spinner fa-spin mr-1"></i>파일을 읽는 중...</span>`;
+            const logs = [];
+            let unknownSubjectsGlobal = new Set();
+            const cur = appData.curriculumSets[admissionYear] || activeCurriculum();
+            // 이번 업로드(버튼 클릭 1회)에서 이미 초기화한 학생-학년 조합을 기록합니다.
+            // 같은 학년 파일을 다시 올리면 그 학년의 과목 목록을 "새로 교체"하기 위함으로,
+            // 예전 업로드(또는 예전 버전 파서)에서 잘못 들어간 값이 계속 누적되어 섞이는 것을 방지합니다.
+            // (단, 같은 배치 안에서 1학기·2학기 등 여러 파일을 함께 올릴 때는 서로 합쳐져야 하므로
+            //  파일 단위가 아니라 "학생×학년" 단위로 딱 한 번만 초기화합니다.)
+            const resetInThisBatch = new Set();
+
+            async function processFiles(files, gradeKey) {
+                const pickKey = gradeKey === 'grade2' ? 'grade2Picks' : 'grade3Picks';
+                const pickBySemKey = gradeKey === 'grade2' ? 'grade2PicksBySemester' : 'grade3PicksBySemester';
+                for (const file of files) {
+                    try {
+                        const wb = await readWorkbookFromFile(file);
+                        // 첫 시트에 "학번" 헤더가 없으면(예: 요약용 시트가 먼저 배치된 경우) 다른 시트도 탐색합니다.
+                        let res = { error: '시트를 찾지 못했습니다.' };
+                        for (const sheetName of wb.SheetNames) {
+                            const ws = wb.Sheets[sheetName];
+                            const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+                            const attempt = parseStudentAOA(aoa);
+                            if (!attempt.error) { res = attempt; break; }
+                            res = attempt;
+                        }
+                        if (res.error) {
+                            logs.push(`<span class="text-rose-600">✗ ${file.name}: ${res.error}</span>`);
+                            continue;
+                        }
+                        res.rows.forEach(row => {
+                            if (!appData.students[row.id]) {
+                                appData.students[row.id] = { id: row.id, name: '', gender: '', career: '', admissionYear, grade2Picks: [], grade3Picks: [], grade2PicksBySemester: { 1: [], 2: [] }, grade3PicksBySemester: { 1: [], 2: [] } };
+                            }
+                            const st = appData.students[row.id];
+                            st.admissionYear = admissionYear;
+                            if (row.name) st.name = row.name;
+                            if (row.gender) st.gender = row.gender;
+                            if (!st[pickBySemKey]) st[pickBySemKey] = { 1: [], 2: [] };
+                            const resetKey = row.id + '_' + pickKey;
+                            if (!resetInThisBatch.has(resetKey)) {
+                                st[pickKey] = []; // 이전 업로드에서 남아있던 값을 이번 업로드 결과로 교체
+                                st[pickBySemKey] = { 1: [], 2: [] };
+                                resetInThisBatch.add(resetKey);
+                            }
+                            const set = new Set(st[pickKey]);
+                            const semSets = { 1: new Set(st[pickBySemKey][1] || []), 2: new Set(st[pickBySemKey][2] || []) };
+                            row.subjects.forEach(s => {
+                                const canonical = canonicalSubjectName(cur, s);
+                                set.add(canonical);
+                                if (!lookupSubject(cur, s)) unknownSubjectsGlobal.add(s);
+                            });
+                            if (row.subjectsBySemester) {
+                                [1, 2].forEach(sem => {
+                                    (row.subjectsBySemester[sem] || []).forEach(s => semSets[sem].add(canonicalSubjectName(cur, s)));
+                                });
+                            }
+                            st[pickKey] = Array.from(set);
+                            st[pickBySemKey] = { 1: Array.from(semSets[1]), 2: Array.from(semSets[2]) };
+                        });
+                        logs.push(`<span class="text-emerald-600">✓ ${file.name}: 학생 ${res.rows.length}명, 과목열 ${res.subjectCols.length}개 (${gradeKey === 'grade2' ? '2학년' : '3학년'}, ${admissionYear}학년도 입학생 편성표 적용)</span>`);
+                    } catch (err) {
+                        console.error(err);
+                        logs.push(`<span class="text-rose-600">✗ ${file.name}: 파싱 오류 (${err.message})</span>`);
+                    }
+                }
+            }
+
+            await processFiles(g2Files, 'grade2');
+            await processFiles(g3Files, 'grade3');
+
+            if (unknownSubjectsGlobal.size > 0) {
+                logs.push(`<span class="text-amber-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i>편성표에 없는 과목명 ${unknownSubjectsGlobal.size}개 발견: ${Array.from(unknownSubjectsGlobal).join(', ')} — 편성표를 확인하거나 과목명 표기를 통일해주세요.</span>`);
+            }
+            statusBox.innerHTML = logs.join('<br>');
+
+            validateAllStudents();
+            renderDashboard();
+            populateStudentDropdown();
+            switchTab('dashboard');
+            saveToLocalStorage();
+        }
+
+        // =====================================================================
+        // 브라우저 저장(localStorage) - 같은 기기·같은 브라우저에서 새로고침/재방문해도
+        // 편성표와 학생 데이터가 유지되도록 자동 저장합니다.
+        // 주의: 이 저장소는 "이 브라우저에만" 남으며, 다른 사람/다른 기기와 공유되지 않습니다.
+        // =====================================================================
+        const STORAGE_KEY = 'juseong_course_validator_v1';
+
+        function saveToLocalStorage() {
+            try {
+                const payload = {
+                    curriculumSets: appData.curriculumSets,
+                    activeCurriculumYear: appData.activeCurriculumYear,
+                    students: appData.students,
+                    savedAt: Date.now()
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+                appData._lastSavedAt = payload.savedAt;
+                updateSaveIndicator();
+            } catch (e) {
+                console.error('로컬 저장 실패:', e);
+                updateSaveIndicator();
+            }
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return false;
+                const data = JSON.parse(raw);
+                if (data.curriculumSets) appData.curriculumSets = data.curriculumSets;
+                if (data.activeCurriculumYear) appData.activeCurriculumYear = data.activeCurriculumYear;
+                appData.students = data.students || {};
+                appData._lastSavedAt = data.savedAt || null;
+                return true;
+            } catch (e) {
+                console.error('로컬 데이터 불러오기 실패:', e);
+                return false;
+            }
+        }
+
+        function clearLocalStorage() {
+            if (!confirm('이 브라우저에 저장된 모든 데이터(편성표 편집 내용 + 학생 데이터)를 완전히 초기화할까요? 기본 내장 편성표(2026학년도)로 되돌아갑니다. 이 작업은 되돌릴 수 없습니다.')) return;
+            localStorage.removeItem(STORAGE_KEY);
+            appData.curriculumSets = { '2026': BUILTIN_CURRICULUM_2026 };
+            appData.activeCurriculumYear = '2026';
+            appData.students = {};
+            appData._lastSavedAt = null;
+            refreshCurriculumYearUI();
+            renderDashboard();
+            populateStudentDropdown();
+            document.getElementById('studentParseStatus').innerHTML = '<span class="text-slate-500">모든 데이터가 초기화되었습니다.</span>';
+            updateSaveIndicator();
+            alert('초기화되었습니다.');
+        }
+
+        function updateSaveIndicator() {
+            const el = document.getElementById('saveIndicator');
+            if (!el) return;
+            if (appData._lastSavedAt) {
+                const t = new Date(appData._lastSavedAt);
+                const hh = String(t.getHours()).padStart(2, '0');
+                const mm = String(t.getMinutes()).padStart(2, '0');
+                el.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i>이 브라우저에 자동 저장됨 (${hh}:${mm}) · <button onclick="clearLocalStorage()" class="underline hover:text-rose-500">저장 데이터 지우기</button>`;
+            } else {
+                el.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-500 mr-1"></i>아직 이 브라우저에 저장된 데이터가 없습니다.`;
+            }
+        }
+
+        // =====================================================================
+        // 백업 파일로 내보내기 / 불러오기
+        // (localStorage는 이 브라우저에만 남지만, 백업 파일은 다운로드해서
+        //  다른 컴퓨터·다른 브라우저로 옮기거나 따로 보관할 수 있습니다.)
+        // =====================================================================
+        const BACKUP_FORMAT_VERSION = 1;
+
+        function exportBackupFile() {
+            const payload = {
+                appName: '주성고_고교학점제_수강신청_검증시스템',
+                backupVersion: BACKUP_FORMAT_VERSION,
+                exportedAt: new Date().toISOString(),
+                curriculumSets: appData.curriculumSets,
+                activeCurriculumYear: appData.activeCurriculumYear,
+                students: appData.students
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+            a.href = url;
+            a.download = `주성고_수강신청검증_백업_${stamp}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            const studentCount = Object.keys(appData.students).length;
+            const yearCount = Object.keys(appData.curriculumSets).length;
+            document.getElementById('backupStatus').innerHTML = `<span class="text-emerald-600"><i class="fa-solid fa-circle-check mr-1"></i>백업 파일이 다운로드되었습니다. (편성표 ${yearCount}개 연도, 학생 ${studentCount}명)</span>`;
+        }
+
+        function importBackupFile(event) {
+            const file = event.target.files && event.target.files[0];
+            const statusBox = document.getElementById('backupStatus');
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = e => {
+                let data;
+                try {
+                    data = JSON.parse(e.target.result);
+                } catch (err) {
+                    statusBox.innerHTML = `<span class="text-rose-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>파일을 읽을 수 없습니다. 올바른 백업 파일(.json)인지 확인해주세요.</span>`;
+                    event.target.value = '';
+                    return;
+                }
+                if (!data || typeof data !== 'object' || !data.curriculumSets || !data.students) {
+                    statusBox.innerHTML = `<span class="text-rose-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>이 프로그램의 백업 파일 형식이 아닙니다.</span>`;
+                    event.target.value = '';
+                    return;
+                }
+                const studentCount = Object.keys(data.students).length;
+                const yearCount = Object.keys(data.curriculumSets).length;
+                const exportedLabel = data.exportedAt ? new Date(data.exportedAt).toLocaleString() : '알 수 없음';
+                const currentStudentCount = Object.keys(appData.students).length;
+                if (!confirm(`백업 파일(${exportedLabel} 저장, 편성표 ${yearCount}개 연도·학생 ${studentCount}명)을 불러올까요?\n\n현재 화면의 데이터(학생 ${currentStudentCount}명)는 모두 이 백업 내용으로 대체됩니다. 이 작업은 되돌릴 수 없습니다.`)) {
+                    event.target.value = '';
+                    return;
+                }
+                appData.curriculumSets = data.curriculumSets;
+                appData.activeCurriculumYear = data.activeCurriculumYear && data.curriculumSets[data.activeCurriculumYear]
+                    ? data.activeCurriculumYear
+                    : Object.keys(data.curriculumSets).sort()[0];
+                appData.students = data.students;
+
+                refreshCurriculumYearUI();
+                validateAllStudents();
+                renderDashboard();
+                populateStudentDropdown();
+                saveToLocalStorage();
+
+                statusBox.innerHTML = `<span class="text-emerald-600"><i class="fa-solid fa-circle-check mr-1"></i>백업 파일을 불러왔습니다. (편성표 ${yearCount}개 연도, 학생 ${studentCount}명) 이 브라우저에도 자동 저장되었습니다.</span>`;
+                event.target.value = '';
+            };
+            reader.onerror = () => {
+                statusBox.innerHTML = `<span class="text-rose-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>파일을 읽는 중 오류가 발생했습니다.</span>`;
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // =====================================================================
+        // 클라우드 동기화 (구글 시트 + Apps Script 웹 앱을 간이 데이터 저장소로 사용)
+        // 같은 웹 앱 URL을 입력한 모든 사용자가 같은 데이터를 저장·조회할 수 있습니다.
+        // URL 자체는 이 브라우저의 localStorage에만 저장되는 "설정값"이고,
+        // 실제 공유되는 편성표·학생 데이터는 구글 시트 쪽에 저장됩니다.
+        // =====================================================================
+        const CLOUD_URL_KEY = 'juseong_cloud_script_url';
+
+        function getCloudUrl() {
+            return (localStorage.getItem(CLOUD_URL_KEY) || '').trim();
+        }
+
+        function saveCloudUrl() {
+            const url = document.getElementById('cloudScriptUrl').value.trim();
+            const statusBox = document.getElementById('cloudStatus');
+            if (!url) {
+                statusBox.innerHTML = `<span class="text-rose-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>Apps Script 웹 앱 URL을 입력해주세요.</span>`;
+                return;
+            }
+            if (!/^https:\/\/script\.google\.com\//.test(url)) {
+                statusBox.innerHTML = `<span class="text-amber-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i>URL 형식이 예상과 달라요. "https://script.google.com/macros/..." 형태인지 확인해주세요. (그래도 저장은 됩니다)</span>`;
+            }
+            localStorage.setItem(CLOUD_URL_KEY, url);
+            statusBox.innerHTML = `<span class="text-emerald-600"><i class="fa-solid fa-circle-check mr-1"></i>클라우드 주소가 이 브라우저에 저장되었습니다. 이제 [클라우드에 저장]/[불러오기]를 사용할 수 있습니다.</span>`;
+        }
+
+        // Apps Script 배포가 제대로 됐는지 가장 빠르게 확인하는 방법은 URL을 새 탭에서
+        // 직접 열어보는 것입니다. { } 같은 JSON 텍스트가 그대로 보이면 정상, 구글 로그인
+        // 화면이나 "승인 필요" 페이지가 뜨면 배포/권한 설정을 다시 확인해야 합니다.
+        function testCloudUrl() {
+            const url = document.getElementById('cloudScriptUrl').value.trim() || getCloudUrl();
+            if (!url) {
+                document.getElementById('cloudStatus').innerHTML = `<span class="text-rose-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>먼저 URL을 입력해주세요.</span>`;
+                return;
+            }
+            window.open(url, '_blank');
+        }
+
+        async function saveToCloud() {
+            const url = getCloudUrl();
+            const statusBox = document.getElementById('cloudStatus');
+            if (!url) { statusBox.innerHTML = `<span class="text-rose-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>먼저 클라우드 URL을 입력하고 저장해주세요.</span>`; return; }
+            statusBox.innerHTML = `<span class="text-indigo-600"><i class="fa-solid fa-spinner fa-spin mr-1"></i>클라우드에 저장하는 중...</span>`;
+            try {
+                const payload = {
+                    appName: '주성고_고교학점제_수강신청_검증시스템',
+                    backupVersion: BACKUP_FORMAT_VERSION,
+                    exportedAt: new Date().toISOString(),
+                    curriculumSets: appData.curriculumSets,
+                    activeCurriculumYear: appData.activeCurriculumYear,
+                    students: appData.students
+                };
+                // Content-Type을 지정하지 않으면 브라우저가 text/plain으로 보내 CORS 사전요청(preflight)을
+                // 피할 수 있습니다. Apps Script 쪽에서는 e.postData.contents로 원문을 그대로 받습니다.
+                const res = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
+                const rawText = await res.text();
+                if (!res.ok) throw new Error(`서버 응답 오류 (${res.status}) — 응답 내용: ${rawText.slice(0, 150)}`);
+                let result;
+                try { result = JSON.parse(rawText); }
+                catch (parseErr) {
+                    throw new Error(`서버가 JSON이 아닌 응답을 반환했습니다 (Apps Script 인증/배포 문제일 가능성이 높습니다). 응답 시작 부분: "${rawText.slice(0, 150).replace(/\s+/g, ' ')}"`);
+                }
+                if (result.status !== 'ok') throw new Error(result.message || '알 수 없는 오류');
+
+                // 저장이 실제로 반영됐는지, 곧바로 다시 읽어와서 왕복 확인합니다.
+                let verifyNote = '';
+                try {
+                    const verifyRes = await fetch(url, { method: 'GET' });
+                    const verifyData = await verifyRes.json();
+                    const verifyOk = verifyData && verifyData.exportedAt === payload.exportedAt;
+                    verifyNote = verifyOk
+                        ? ' · 저장 확인 완료(다시 읽어서 검증함)'
+                        : ' · <span class="text-amber-600">⚠ 저장 직후 재조회 결과가 다릅니다 — 학생 수가 많으면(대략 300명 이상) 구글 시트 셀의 5만자 저장 한도를 넘어 잘렸을 가능성이 높습니다. "설정 방법 보기"의 최신 코드(구글 드라이브 파일 저장 방식)로 Apps Script를 교체해보세요. 그게 아니라면 배포가 최신 코드가 아닐 수 있습니다</span>';
+                } catch (verifyErr) {
+                    verifyNote = ' · <span class="text-amber-600">⚠ 저장 확인 조회 실패</span>';
+                }
+
+                statusBox.innerHTML = `<span class="text-emerald-600"><i class="fa-solid fa-circle-check mr-1"></i>클라우드에 저장되었습니다. (편성표 ${Object.keys(appData.curriculumSets).length}개 연도, 학생 ${Object.keys(appData.students).length}명)${verifyNote}</span>`;
+            } catch (err) {
+                console.error(err);
+                statusBox.innerHTML = `<span class="text-rose-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>클라우드 저장 실패: ${err.message}</span>
+                    <div class="mt-1 text-slate-500">확인해보세요: ① Apps Script를 코드 수정 후 <strong>다시 배포</strong>했는지(배포 → 배포관리 → 편집 → 새 버전) ② 액세스 권한이 "모든 사용자"인지 ③ 배포 시 권한 승인(고급 → 이동(안전하지 않음) 포함)을 끝까지 마쳤는지 ④ 아래 URL을 새 탭에서 직접 열었을 때 <code>{}</code> 같은 JSON이 보이는지, 구글 로그인 화면이 뜨지는 않는지 ⑤ 학생 수가 많다면(대략 300명 이상) 시트 셀은 5만자 제한이 있어 저장이 잘릴 수 있습니다 — 이 경우 "설정 방법 보기"의 최신 코드(구글 드라이브 파일 저장 방식)로 교체해보세요.</div>`;
+            }
+        }
+
+        async function loadFromCloud() {
+            const url = getCloudUrl();
+            const statusBox = document.getElementById('cloudStatus');
+            if (!url) { statusBox.innerHTML = `<span class="text-rose-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>먼저 클라우드 URL을 입력하고 저장해주세요.</span>`; return; }
+            statusBox.innerHTML = `<span class="text-indigo-600"><i class="fa-solid fa-spinner fa-spin mr-1"></i>클라우드에서 불러오는 중...</span>`;
+            try {
+                const res = await fetch(url, { method: 'GET' });
+                const rawText = await res.text();
+                if (!res.ok) throw new Error(`서버 응답 오류 (${res.status}) — 응답 내용: ${rawText.slice(0, 150)}`);
+                let data;
+                try { data = JSON.parse(rawText); }
+                catch (parseErr) {
+                    throw new Error(`서버가 JSON이 아닌 응답을 반환했습니다. 응답 시작 부분: "${rawText.slice(0, 150).replace(/\s+/g, ' ')}" — Apps Script 배포/인증 문제로 보입니다.`);
+                }
+                if (!data || !data.curriculumSets || !data.students) {
+                    statusBox.innerHTML = `<span class="text-amber-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i>클라우드에 아직 저장된 데이터가 없습니다. 먼저 [클라우드에 저장]을 눌러주세요.</span>
+                        <div class="mt-1 text-slate-500">[클라우드에 저장]을 눌렀는데도 이 메시지가 계속 뜬다면, 저장 시 표시된 상태 메시지에 오류가 없었는지 다시 확인해주세요. 저장이 "성공"으로 떴는데도 여기서 비어있다면, 저장과 배포가 서로 다른 배포 버전/시트를 가리키고 있을 수 있습니다 — Apps Script에서 배포 → 배포관리로 들어가 활성 배포가 최신 코드인지 확인해주세요.</div>`;
+                    return;
+                }
+                const studentCount = Object.keys(data.students).length;
+                const yearCount = Object.keys(data.curriculumSets).length;
+                const exportedLabel = data.exportedAt ? new Date(data.exportedAt).toLocaleString() : '알 수 없음';
+                const currentStudentCount = Object.keys(appData.students).length;
+                if (!confirm(`클라우드 데이터(${exportedLabel} 저장, 편성표 ${yearCount}개 연도·학생 ${studentCount}명)를 불러올까요?\n\n현재 화면의 데이터(학생 ${currentStudentCount}명)는 모두 이 내용으로 대체됩니다. 이 작업은 되돌릴 수 없습니다.`)) {
+                    return;
+                }
+                appData.curriculumSets = data.curriculumSets;
+                appData.activeCurriculumYear = data.activeCurriculumYear && data.curriculumSets[data.activeCurriculumYear]
+                    ? data.activeCurriculumYear
+                    : Object.keys(data.curriculumSets).sort()[0];
+                appData.students = data.students;
+
+                refreshCurriculumYearUI();
+                validateAllStudents();
+                renderDashboard();
+                populateStudentDropdown();
+                saveToLocalStorage();
+
+                statusBox.innerHTML = `<span class="text-emerald-600"><i class="fa-solid fa-circle-check mr-1"></i>클라우드 데이터를 불러왔습니다. (편성표 ${yearCount}개 연도, 학생 ${studentCount}명)</span>`;
+            } catch (err) {
+                console.error(err);
+                statusBox.innerHTML = `<span class="text-rose-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>클라우드 불러오기 실패: ${err.message}</span>`;
+            }
+        }
+
+        // =====================================================================
+        // DEMO DATA (실제 학생 명단 대신 가상의 인물 사용)
+        // =====================================================================
+        function loadDemoData() {
+            appData.students = {
+                '20101': { id: '20101', name: '한도윤', gender: '남', career: '기계공학과', admissionYear: '2026', grade2Picks: ['물리학*', '화학', '기하', '식품안전과 건강'], grade3Picks: ['미적분Ⅱ*', '역학과 에너지', '전자기와 양자', '빅 데이터 분석*'] },
+                '20102': { id: '20102', name: '오서준', gender: '남', career: '컴퓨터공학과', admissionYear: '2026', grade2Picks: ['확률과 통계', '인공지능 기초*', '사회와 문화'], grade3Picks: ['빅 데이터 분석*', '데이터 과학*', '미디어 영어', '전자기와 양자'] }, // 물리학 미이수 상태로 전자기와 양자 선택 -> 위계 오류 유발
+                '10101': { id: '10101', name: '백서아', gender: '여', career: '의예과/생명공학', admissionYear: '2026', grade2Picks: ['화학', '생명과학', '세포와 물질대사'], grade3Picks: ['화학 반응의 세계', '생물의 유전', '독서 토론과 글쓰기'] }
+            };
+            validateAllStudents();
+            renderDashboard();
+            populateStudentDropdown();
+            document.getElementById('studentParseStatus').innerHTML = '<span class="text-slate-500">샘플 학생 데이터 3명이 로드되었습니다. (2026학년도 입학생 편성표 기준, 자동 저장되지 않음)</span>';
+        }
+
+        // =====================================================================
+        // VALIDATION ENGINE
+        // =====================================================================
+        // grade2Picks/grade3Picks(학생이 실제로 고른 선택과목)와 편성표(cur)만으로
+        // 선수과목 위계·학점 규정 검증 결과를 계산합니다. appData를 건드리지 않으므로
+        // 실제 학생 저장 전 "학생별 교과 신청" 화면의 실시간 미리보기에도 그대로 재사용합니다.
+        function computeValidationForPicks(grade2Picks, grade3Picks, cur, isFinalYear) {
+            const mandatory = cur.mandatoryByGrade || { 1: cur.commonSubjects || [], 2: [], 3: [] };
+            const result = {};
+
+            result.grade2Picks = grade2Picks || [];
+            result.grade3Picks = grade3Picks || [];
+            result.grade1 = [...(mandatory[1] || [])];
+            result.grade2 = Array.from(new Set([...(mandatory[2] || []), ...result.grade2Picks]));
+            result.grade3 = Array.from(new Set([...(mandatory[3] || []), ...result.grade3Picks]));
+            result.allSubjects = [...result.grade1, ...result.grade2, ...result.grade3];
+            result.selectedSubjects = [...result.grade2Picks, ...result.grade3Picks];
+
+            result.prereqErrors = [];
+            result.unknownSubjects = result.allSubjects.filter(s => !lookupSubject(cur, s));
+            result.nationalFallbackSubjects = result.allSubjects.filter(s => {
+                const r = lookupSubject(cur, s);
+                return r && r.source === 'national';
+            });
+
+            result.creditSummary = {};
+            result.allSubjects.forEach(subj => {
+                const r = lookupSubject(cur, subj);
+                const cat = r ? r.info.category : '기타';
+                const credit = r ? r.info.credit : 0;
+                result.creditSummary[cat] = (result.creditSummary[cat] || 0) + credit;
+            });
+
+            result.selectedCreditSummary = {};
+            result.selectedSubjects.forEach(subj => {
+                const r = lookupSubject(cur, subj);
+                const cat = r ? r.info.category : '기타';
+                const credit = r ? r.info.credit : 0;
+                result.selectedCreditSummary[cat] = (result.selectedCreditSummary[cat] || 0) + credit;
+            });
+
+            const baseSubjectSet = new Set(result.allSubjects.map(baseName));
+            for (const [postReq, orGroups] of Object.entries(PREREQ_RULES)) {
+                if (baseSubjectSet.has(baseName(postReq))) {
+                    const missingGroups = orGroups.filter(group => !group.some(pre => baseSubjectSet.has(baseName(pre))));
+                    if (missingGroups.length > 0) {
+                        const missingText = missingGroups.map(g => g.join('/')).join(', ');
+                        result.prereqErrors.push(`'${postReq}' 선택 오류: 선수과목 (${missingText}) 미이수`);
+                    }
+                }
+            }
+
+            const basicSelected = (result.selectedCreditSummary['국어'] || 0) + (result.selectedCreditSummary['수학'] || 0) + (result.selectedCreditSummary['영어'] || 0);
+            result.basicSelectedCredit = basicSelected;
+            result.isBasicValid = basicSelected <= cur.rules.basicMax;
+
+            const lifeSelected = result.selectedCreditSummary['생활교양'] || 0;
+            result.lifeSelectedCredit = lifeSelected;
+            const lifeMet = lifeSelected >= cur.rules.lifeMin;
+            result.isLifeValid = lifeMet;
+            result.isLifeInProgress = !lifeMet && !isFinalYear;
+
+            result.requiredCreditErrors = [];
+            result.requiredCreditInProgress = [];
+            Object.entries(cur.requiredByCategory || {}).forEach(([cat, minCredit]) => {
+                const have = result.creditSummary[cat] || 0;
+                if (have < minCredit) {
+                    const entry = { category: cat, have, required: minCredit };
+                    if (isFinalYear) {
+                        result.requiredCreditErrors.push(entry);
+                    } else {
+                        result.requiredCreditInProgress.push(entry);
+                    }
+                }
+            });
+            result.isRequiredCreditValid = result.requiredCreditErrors.length === 0;
+
+            return result;
+        }
+
+        function validateAllStudents() {
+            Object.values(appData.students).forEach(st => {
+                if (!st.admissionYear || !appData.curriculumSets[st.admissionYear]) {
+                    st.admissionYear = appData.activeCurriculumYear;
+                }
+                const cur = curriculumForStudent(st);
+                st.grade2Picks = st.grade2Picks || [];
+                st.grade3Picks = st.grade3Picks || [];
+
+                const grade = studentGrade(st);
+                const isFinalYear = grade === 3 || grade === null;
+                const result = computeValidationForPicks(st.grade2Picks, st.grade3Picks, cur, isFinalYear);
+                Object.assign(st, result);
+
+                st.fitnessScore = calculateCareerFitnessScore(st.career, st.allSubjects);
+            });
+        }
+
+        function calculateCareerFitnessScore(career, takenSubjects) {
+            if (!career) return 0;
+            const matchedCategory = Object.keys(CAREER_RECOMMENDATIONS).find(key => career.includes(key) || key.includes(career));
+            const recs = CAREER_RECOMMENDATIONS[matchedCategory];
+            if (!recs) return 50;
+            const takenBase = new Set((takenSubjects || []).map(baseName));
+            const matched = recs.filter(sub => takenBase.has(baseName(sub)));
+            const score = Math.round((matched.length / recs.length) * 100);
+            return Math.min(100, Math.max(30, score));
+        }
+
+        // =====================================================================
+        // RENDER DASHBOARD
+        // =====================================================================
+        function studentIdList() {
+            return Object.keys(appData.students).sort();
+        }
+
+        function renderGradeTabBar(counts, total) {
+            const box = document.getElementById('gradeTabBar');
+            if (!box) return;
+            const tabs = [
+                { key: 'ALL', label: '전체', count: total },
+                { key: '1', label: '1학년', count: counts[1] },
+                { key: '2', label: '2학년', count: counts[2] },
+                { key: '3', label: '3학년', count: counts[3] }
+            ];
+            if (counts.unknown > 0) tabs.push({ key: 'UNKNOWN', label: '학년 미분류', count: counts.unknown });
+            box.innerHTML = tabs.map(t => {
+                const active = currentGradeTab === t.key;
+                return `<button onclick="setGradeTab('${t.key}')" class="text-xs px-3.5 py-1.5 rounded-full font-medium transition ${active ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}">${t.label} <span class="${active ? 'text-slate-300' : 'text-slate-400'}">${t.count}</span></button>`;
+            }).join('');
+        }
+
+        function renderDashboard() {
+            updateActiveCurriculumLabel();
+            const allIds = studentIdList();
+            const allList = allIds.map(id => appData.students[id]);
+
+            // 학년별 인원수 (탭 라벨 표시용, 항상 전체 학생 기준으로 집계)
+            const gradeCounts = { 1: 0, 2: 0, 3: 0, unknown: 0 };
+            allList.forEach(s => {
+                const g = studentGrade(s);
+                if (g) gradeCounts[g]++; else gradeCounts.unknown++;
+            });
+            renderGradeTabBar(gradeCounts, allList.length);
+
+            // 현재 선택된 학년 탭 범위로 제한
+            const ids = allIds.filter(id => {
+                if (currentGradeTab === 'ALL') return true;
+                const g = studentGrade(appData.students[id]);
+                if (currentGradeTab === 'UNKNOWN') return g === null;
+                return g === parseInt(currentGradeTab, 10);
+            });
+            const total = ids.length;
+            const list = ids.map(id => appData.students[id]);
+            const prereqErrCount = list.filter(s => s.prereqErrors.length > 0).length;
+            const creditErrCount = list.filter(s => !s.isBasicValid || (!s.isLifeValid && !s.isLifeInProgress)).length;
+            const requiredErrCount = list.filter(s => !s.isRequiredCreditValid).length;
+            const scored = list.filter(s => s.career);
+            const avgFitness = scored.length > 0 ? Math.round(scored.reduce((a, s) => a + s.fitnessScore, 0) / scored.length) : 0;
+
+            document.getElementById('kpi-total-students').innerText = `${total}명`;
+            document.getElementById('kpi-prereq-errors').innerText = `${prereqErrCount}건`;
+            document.getElementById('kpi-credit-errors').innerText = `${creditErrCount}건`;
+            document.getElementById('kpi-required-errors').innerText = `${requiredErrCount}건`;
+            document.getElementById('kpi-avg-fitness').innerText = `${avgFitness}%`;
+
+            const tbody = document.getElementById('studentTableBody');
+            if (allList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="11" class="text-center py-10 text-slate-400"><i class="fa-solid fa-folder-open text-3xl mb-2 block"></i>수강신청 데이터를 업로드하거나 [샘플 학생데이터 로드] 버튼을 눌러주세요.</td></tr>`;
+                return;
+            }
+            if (total === 0) {
+                tbody.innerHTML = `<tr><td colspan="11" class="text-center py-10 text-slate-400"><i class="fa-solid fa-user-slash text-3xl mb-2 block"></i>선택한 학년에 해당하는 학생이 없습니다.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = '';
+            let lastGrade = undefined;
+            ids.forEach(id => {
+                const st = appData.students[id];
+                const g = studentGrade(st);
+
+                if (currentGradeTab === 'ALL' && g !== lastGrade) {
+                    lastGrade = g;
+                    const countForGroup = list.filter(s => studentGrade(s) === g).length;
+                    const label = g ? `${g}학년` : '학년 미분류 (학번 형식이 다름)';
+                    const headerTr = document.createElement('tr');
+                    headerTr.dataset.groupHeader = 'true';
+                    headerTr.dataset.grade = g === null ? 'unknown' : String(g);
+                    headerTr.innerHTML = `<td colspan="11" class="px-4 py-2 bg-slate-50 text-xs font-semibold text-slate-500 border-y border-slate-100">${label} <span class="text-slate-400 font-normal">(${countForGroup}명)</span></td>`;
+                    tbody.appendChild(headerTr);
+                }
+
+                const cur = curriculumForStudent(st);
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50 transition';
+                row.dataset.studentId = id;
+                row.dataset.grade = g === null ? 'unknown' : String(g);
+                row.innerHTML = `
+                    <td class="px-4 py-3 font-semibold text-slate-900 cursor-pointer" onclick="openStudentModal('${id}')">${st.id}</td>
+                    <td class="px-4 py-3 font-medium cursor-pointer" onclick="openStudentModal('${id}')">${st.name || '-'} ${st.gender ? `(${st.gender})` : ''}</td>
+                    <td class="px-4 py-3 text-center cursor-pointer" onclick="openStudentModal('${id}')">
+                        ${g ? `<span class="bg-indigo-50 text-indigo-600 text-[11px] px-2 py-0.5 rounded-full font-semibold">${g}학년</span>` : '<span class="text-slate-300 text-[11px]">-</span>'}
+                    </td>
+                    <td class="px-4 py-3 text-center cursor-pointer" onclick="openStudentModal('${id}')">
+                        <span class="bg-slate-100 text-slate-600 text-[11px] px-2 py-0.5 rounded-full font-semibold">${st.admissionYear || '-'}</span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <input type="text" value="${st.career || ''}" placeholder="희망 진로 입력"
+                               class="text-xs border border-slate-100 rounded px-2 py-1 w-32 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                               onchange="updateStudentCareer('${id}', this.value)">
+                    </td>
+                    <td class="px-4 py-3 text-center cursor-pointer" onclick="openStudentModal('${id}')">
+                        ${st.prereqErrors.length === 0
+                            ? '<span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-bold">정상</span>'
+                            : `<span class="bg-rose-100 text-rose-800 text-xs px-2.5 py-1 rounded-full font-bold">오류 (${st.prereqErrors.length})</span>`}
+                    </td>
+                    <td class="px-4 py-3 text-center cursor-pointer" onclick="openStudentModal('${id}')">
+                        <span class="${st.isBasicValid ? 'text-slate-700' : 'text-rose-600 font-bold'}">${st.basicSelectedCredit}학점</span>
+                        <span class="${st.isBasicValid ? 'bg-slate-100 text-slate-600' : 'bg-rose-100 text-rose-700'} text-[11px] px-2 py-0.5 rounded-full ml-1 font-semibold">
+                            ${st.isBasicValid ? '적합' : `초과(&gt;${cur.rules.basicMax})`}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-center cursor-pointer" onclick="openStudentModal('${id}')">
+                        <span class="${st.isLifeValid ? 'text-slate-700' : (st.isLifeInProgress ? 'text-blue-600 font-bold' : 'text-amber-600 font-bold')}">${st.lifeSelectedCredit}학점</span>
+                        <span class="${st.isLifeValid ? 'bg-slate-100 text-slate-600' : (st.isLifeInProgress ? 'bg-blue-50 text-blue-700' : 'bg-amber-100 text-amber-700')} text-[11px] px-2 py-0.5 rounded-full ml-1 font-semibold">
+                            ${st.isLifeValid ? '적합' : (st.isLifeInProgress ? '진행중' : `부족(&lt;${cur.rules.lifeMin})`)}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-center cursor-pointer" onclick="openStudentModal('${id}')">
+                        ${st.isRequiredCreditValid
+                            ? (st.requiredCreditInProgress.length > 0
+                                ? `<span class="bg-blue-50 text-blue-700 text-xs px-2.5 py-1 rounded-full font-bold">진행중 (${st.requiredCreditInProgress.length})</span>`
+                                : '<span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-bold">충족</span>')
+                            : `<span class="bg-orange-100 text-orange-800 text-xs px-2.5 py-1 rounded-full font-bold">미달 (${st.requiredCreditErrors.length})</span>`}
+                    </td>
+                    <td class="px-4 py-3 text-center cursor-pointer" onclick="openStudentModal('${id}')">
+                        <span class="font-bold text-indigo-600">${st.career ? st.fitnessScore + '%' : '-'}</span>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <button onclick="openStudentModal('${id}')" class="bg-slate-100 hover:bg-indigo-50 text-indigo-700 border border-slate-100 text-xs px-2.5 py-1 rounded-md font-medium">
+                            <i class="fa-solid fa-magnifying-glass-chart mr-1"></i>분석
+                        </button>
+                        <button onclick="event.stopPropagation(); deleteStudent('${id}')" class="ml-1 text-slate-300 hover:text-rose-500 text-xs px-1.5 py-1" title="이 학생 삭제">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>`;
+                tbody.appendChild(row);
+            });
+            filterStudentTable();
+        }
+
+        function updateStudentCareer(id, value) {
+            if (!appData.students[id]) return;
+            appData.students[id].career = value.trim();
+            appData.students[id].fitnessScore = calculateCareerFitnessScore(appData.students[id].career, appData.students[id].allSubjects);
+            const scored = Object.values(appData.students).filter(s => s.career);
+            const avgFitness = scored.length > 0 ? Math.round(scored.reduce((a, s) => a + s.fitnessScore, 0) / scored.length) : 0;
+            document.getElementById('kpi-avg-fitness').innerText = `${avgFitness}%`;
+            populateStudentDropdown();
+            saveToLocalStorage();
+        }
+
+        function studentMatchesStatus(st, status) {
+            const hasPrereqErr = st.prereqErrors.length > 0;
+            const hasBasicErr = !st.isBasicValid;
+            const hasLifeErr = !st.isLifeValid && !st.isLifeInProgress;
+            const hasRequiredErr = st.requiredCreditErrors.length > 0;
+            const hasAnyErr = hasPrereqErr || hasBasicErr || hasLifeErr || hasRequiredErr;
+            switch (status) {
+                case 'ERROR': return hasAnyErr;
+                case 'PREREQ': return hasPrereqErr;
+                case 'CREDIT': return hasBasicErr || hasLifeErr;
+                case 'BASIC': return hasBasicErr;
+                case 'LIFE': return hasLifeErr;
+                case 'REQUIRED': return hasRequiredErr;
+                case 'OK': return !hasAnyErr;
+                default: return true; // ALL
+            }
+        }
+
+        function filterStudentTable() {
+            const search = document.getElementById('searchStudent').value.toLowerCase();
+            const status = document.getElementById('filterStatus').value;
+            const dataRows = document.querySelectorAll('#studentTableBody tr[data-student-id]');
+            let shownCount = 0;
+            dataRows.forEach(row => {
+                const id = row.dataset.studentId;
+                const st = appData.students[id];
+                if (!st) { row.style.display = 'none'; return; }
+                const matchesSearch = (st.name || '').toLowerCase().includes(search) || st.id.includes(search);
+                const matchesStatus = studentMatchesStatus(st, status);
+                const show = matchesSearch && matchesStatus;
+                row.style.display = show ? '' : 'none';
+                if (show) shownCount++;
+            });
+            // 학년 그룹 헤더는 그룹 내에 표시되는 행이 하나라도 있을 때만 노출
+            const headerRows = document.querySelectorAll('#studentTableBody tr[data-group-header]');
+            headerRows.forEach(header => {
+                let hasVisible = false;
+                let sib = header.nextElementSibling;
+                while (sib && !sib.dataset.groupHeader) {
+                    if (sib.dataset.studentId && sib.style.display !== 'none') { hasVisible = true; break; }
+                    sib = sib.nextElementSibling;
+                }
+                header.style.display = hasVisible ? '' : 'none';
+            });
+            const badge = document.getElementById('filterCountBadge');
+            if (badge) {
+                badge.innerText = status === 'ALL' ? '' : `${shownCount}명 표시 중`;
+            }
+        }
+
+        function quickFilter(type) {
+            // KPI 카드 클릭 시 해당 오류 유형으로 즉시 필터링
+            document.getElementById('filterStatus').value = type;
+            document.getElementById('searchStudent').value = '';
+            filterStudentTable();
+            const tbody = document.getElementById('studentTableBody');
+            if (tbody && typeof tbody.scrollIntoView === 'function') {
+                tbody.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        // =====================================================================
+        // MODAL
+        // =====================================================================
+        let currentModalStudentId = null;
+        function openStudentModal(id) {
+            currentModalStudentId = id;
+            const st = appData.students[id];
+            const cur = curriculumForStudent(st);
+
+            document.getElementById('modalStudentName').innerText = `${st.name || '이름 미상'} (${st.id})`;
+            document.getElementById('modalStudentCareer').innerText = `희망 진로: ${st.career || '미입력'} · ${studentGrade(st) ? studentGrade(st) + '학년' : '학년 미분류'} · 입학년도: ${st.admissionYear || '-'}`;
+            document.getElementById('modalAdmissionYearLabel').innerText = st.admissionYear || '-';
+
+            let errBox = document.getElementById('modalErrorContainer');
+            errBox.innerHTML = '';
+            st.prereqErrors.forEach(err => {
+                errBox.innerHTML += `<div class="bg-rose-50 border border-rose-200 text-rose-800 p-2.5 rounded-lg text-xs font-medium"><i class="fa-solid fa-circle-exclamation mr-1.5 text-rose-600"></i>${err}</div>`;
+            });
+            if (!st.isBasicValid) {
+                errBox.innerHTML += `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 rounded-lg text-xs font-medium"><i class="fa-solid fa-triangle-exclamation mr-1.5 text-amber-600"></i>국어·수학·영어 선택 학점 초과: ${st.basicSelectedCredit}학점 (기준: ${cur.rules.basicMax}학점 이하)</div>`;
+            }
+            if (!st.isLifeValid && !st.isLifeInProgress) {
+                errBox.innerHTML += `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 rounded-lg text-xs font-medium"><i class="fa-solid fa-triangle-exclamation mr-1.5 text-amber-600"></i>생활·교양 선택 학점 미달: ${st.lifeSelectedCredit}학점 (기준: ${cur.rules.lifeMin}학점 이상)</div>`;
+            }
+            st.requiredCreditErrors.forEach(e => {
+                errBox.innerHTML += `<div class="bg-orange-50 border border-orange-200 text-orange-800 p-2.5 rounded-lg text-xs font-medium"><i class="fa-solid fa-clipboard-check mr-1.5 text-orange-600"></i>'${e.category}' 교과군 필수 이수학점 미달: ${e.have}학점 이수 (기준: ${e.required}학점 이상)</div>`;
+            });
+            if (errBox.innerHTML === '') {
+                errBox.innerHTML = `<div class="bg-emerald-50 border border-emerald-200 text-emerald-800 p-2.5 rounded-lg text-xs font-medium"><i class="fa-solid fa-circle-check mr-1.5 text-emerald-600"></i>모든 위계·학점·필수 이수학점 규정을 만족합니다.</div>`;
+            }
+            if (st.isLifeInProgress || st.requiredCreditInProgress.length > 0) {
+                const parts = [];
+                if (st.isLifeInProgress) parts.push(`생활·교양 선택 학점 ${st.lifeSelectedCredit}/${cur.rules.lifeMin}학점`);
+                st.requiredCreditInProgress.forEach(e => parts.push(`'${e.category}' ${e.have}/${e.required}학점`));
+                errBox.innerHTML += `<div class="bg-blue-50 border border-blue-200 text-blue-700 p-2.5 rounded-lg text-xs font-medium"><i class="fa-solid fa-hourglass-half mr-1.5 text-blue-500"></i>아직 진행 중 (남은 학년에 이수 가능, 현재는 오류로 집계하지 않음): ${parts.join(', ')}</div>`;
+            }
+
+            const unknownBox = document.getElementById('modalUnknownContainer');
+            let unknownHtml = '';
+            if (st.unknownSubjects.length > 0) {
+                unknownHtml += `<div class="bg-slate-100 border border-slate-300 text-slate-700 p-2.5 rounded-lg text-xs"><i class="fa-solid fa-circle-question mr-1.5"></i>학교 편성표·국가 표준 과목 어디에도 없는 과목: ${st.unknownSubjects.join(', ')} (학점 계산에서 0점 처리됨)</div>`;
+            }
+            if (st.nationalFallbackSubjects && st.nationalFallbackSubjects.length > 0) {
+                unknownHtml += `<div class="bg-blue-50 border border-blue-200 text-blue-700 p-2.5 rounded-lg text-xs mt-2"><i class="fa-solid fa-circle-info mr-1.5"></i>학교 편성표엔 없지만 국가 표준 과목 DB로 자동 분류된 과목: ${st.nationalFallbackSubjects.join(', ')}</div>`;
+            }
+            unknownBox.innerHTML = unknownHtml;
+
+            const creditBody = document.getElementById('modalCreditTableBody');
+            creditBody.innerHTML = '';
+            const requiredMap = cur.requiredByCategory || {};
+            const modalGrade = studentGrade(st);
+            const modalIsFinalYear = modalGrade === 3 || modalGrade === null;
+            const cats = Array.from(new Set([...['국어', '수학', '영어', '사회', '과학', '체육', '예술', '생활교양', '기타'], ...Object.keys(requiredMap)]));
+            cats.forEach(cat => {
+                const total = st.creditSummary[cat] || 0;
+                const selected = st.selectedCreditSummary[cat] || 0;
+                const required = requiredMap[cat];
+                if (total === 0 && required === undefined) return;
+                let note = '-';
+                if (['국어', '수학', '영어'].includes(cat)) note = `선택상한 ${cur.rules.basicMax}(국수영 합산)`;
+                if (cat === '생활교양') note = `선택하한 ${cur.rules.lifeMin}`;
+                let statusBadge = '-';
+                if (required !== undefined) {
+                    if (total >= required) {
+                        statusBadge = '<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[11px] font-bold">충족</span>';
+                    } else if (modalIsFinalYear) {
+                        statusBadge = '<span class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-[11px] font-bold">미달</span>';
+                    } else {
+                        statusBadge = '<span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-[11px] font-bold">진행중</span>';
+                    }
+                }
+                creditBody.innerHTML += `<tr>
+                    <td class="p-2 font-bold text-slate-800">${cat}</td>
+                    <td class="p-2 font-bold text-indigo-700">${total}학점</td>
+                    <td class="p-2 text-slate-600">${selected}학점</td>
+                    <td class="p-2 text-slate-700">${required !== undefined ? required + '학점' : '-'}</td>
+                    <td class="p-2">${statusBadge}</td>
+                    <td class="p-2 text-slate-500 text-[11px]">${note}</td>
+                </tr>`;
+            });
+
+            document.getElementById('modalGrade1List').innerHTML = st.grade1.map(s => `<li>• ${s}</li>`).join('') || '<li class="text-slate-400">없음</li>';
+            document.getElementById('modalGrade2List').innerHTML = st.grade2.map(s => `<li>• ${s}</li>`).join('') || '<li class="text-slate-400">없음</li>';
+            document.getElementById('modalGrade3List').innerHTML = st.grade3.map(s => `<li>• ${s}</li>`).join('') || '<li class="text-slate-400">없음</li>';
+
+            document.getElementById('studentModal').classList.remove('hidden');
+        }
+
+        function closeModal() { document.getElementById('studentModal').classList.add('hidden'); }
+
+        function jumpToAIEvalFromModal() {
+            closeModal();
+            switchTab('ai-eval');
+            if (currentModalStudentId !== null) {
+                document.getElementById('aiStudentSelect').value = currentModalStudentId;
+                loadStudentToAIEval();
+                runGeminiEvaluation();
+            }
+        }
+
+        // =====================================================================
+        // 데이터 삭제 / 초기화
+        // =====================================================================
+        function deleteStudent(id) {
+            const st = appData.students[id];
+            if (!st) return;
+            if (!confirm(`${st.name || '이름 미상'} (${id}) 학생 데이터를 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
+            delete appData.students[id];
+            renderDashboard();
+            populateStudentDropdown();
+            saveToLocalStorage();
+        }
+
+        function deleteStudentFromModal() {
+            if (!currentModalStudentId) return;
+            const id = currentModalStudentId;
+            const st = appData.students[id];
+            if (!st) return;
+            if (!confirm(`${st.name || '이름 미상'} (${id}) 학생 데이터를 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
+            delete appData.students[id];
+            closeModal();
+            renderDashboard();
+            populateStudentDropdown();
+            saveToLocalStorage();
+        }
+
+        function resetAllValidationData() {
+            const count = Object.keys(appData.students).length;
+            if (count === 0) { alert('삭제할 검증 데이터가 없습니다.'); return; }
+            if (!confirm(`현재 검증된 학생 ${count}명의 데이터를 모두 초기화할까요? 업로드했던 교육과정 편성표는 유지됩니다. 이 작업은 되돌릴 수 없습니다.`)) return;
+            appData.students = {};
+            renderDashboard();
+            populateStudentDropdown();
+            document.getElementById('studentParseStatus').innerHTML = '<span class="text-slate-500">검증 데이터가 초기화되었습니다.</span>';
+            document.getElementById('aiResultContainer').classList.add('hidden');
+            saveToLocalStorage();
+        }
+
+        // =====================================================================
+        // TAB SWITCHING
+        // =====================================================================
+        function switchTab(tabId) {
+            document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`section-${tabId}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            if (tabId === 'curriculum') renderCurriculumPreview();
+            if (tabId === 'single-student') initSingleStudentTab();
+        }
+
+        // =====================================================================
+        // 학생별 교과(목) 신청 (개별 학생 수동 등록/수정)
+        // =====================================================================
+        let ssSelectedGrade = 2;
+        let ssSelectedSemester = 1;
+        // 학년 → 학기 → Set(과목명). 같은 과목이 1학기·2학기 풀 양쪽에 걸쳐 있을 수 있어
+        // (예: "인공지능 기초*"), 학기별로 정확히 따로 기억해야 실제 선택 개수가 맞습니다.
+        let ssElectiveSelections = { 2: { 1: new Set(), 2: new Set() }, 3: { 1: new Set(), 2: new Set() } };
+
+        // 현재 화면에 학기 탭이 없는 편성표(구버전)에서는 학기 구분이 없으므로,
+        // 항상 "학기 1" 버킷 하나만 사용해 이전과 동일하게 동작합니다.
+        function currentSemesterBucket() {
+            return ssSelectedSemester === 2 ? 2 : 1;
+        }
+
+        // 학기별로 저장된 선택 과목을 하나의 배열로 합칩니다 (검증/저장은 학기 구분 없이 학년 단위로 동작).
+        function flattenGradeSelections(gradeSelections) {
+            return Array.from(new Set([...(gradeSelections[1] || []), ...(gradeSelections[2] || [])]));
+        }
+
+        function initSingleStudentTab() {
+            renderSingleStudentYearOptions();
+            renderSingleStudentGradeTabs();
+        }
+
+        function renderSingleStudentYearOptions() {
+            const sel = document.getElementById('ssAdmissionYear');
+            const current = sel.value;
+            const years = Object.keys(appData.curriculumSets).sort();
+            sel.innerHTML = years.map(y => `<option value="${y}">${y}학년도 입학생</option>`).join('');
+            sel.value = years.includes(current) ? current : appData.activeCurriculumYear;
+            renderElectivePicker();
+        }
+
+        // 편성표에서 "학교지정(자동부여)"이 아닌 과목만 골라 학생선택 후보로 사용합니다.
+        // grade/semester를 지정하면 그 학년·학기에 실제로 배치된(택N 그룹이 속한) 과목만 남깁니다.
+        // (구버전에 저장된 편성표처럼 grade/semester 정보가 없는 경우엔 필터링 없이 전체를 보여줍니다.)
+        function getElectiveSubjects(year, grade, semester) {
+            const cur = appData.curriculumSets[year];
+            if (!cur) return [];
+            const mandatory = cur.mandatoryByGrade || { 1: [], 2: [], 3: [] };
+            const mandatorySet = new Set([...(mandatory[1] || []), ...(mandatory[2] || []), ...(mandatory[3] || [])]);
+            let electives = Object.entries(cur.subjectMap)
+                .filter(([name]) => !mandatorySet.has(name))
+                .map(([name, info]) => ({ name, ...info }));
+            const hasGradeInfo = electives.some(s => s.grade !== undefined && s.grade !== null);
+            if (hasGradeInfo && grade) {
+                electives = electives.filter(s => s.grade === grade);
+            }
+            const hasSemesterInfo = electives.some(s => s.semester !== undefined && s.semester !== null);
+            if (hasSemesterInfo && semester) {
+                electives = electives.filter(s => s.semester === semester);
+            }
+            return electives.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+        }
+
+        function onSingleStudentIdInput() {
+            renderSingleStudentGradeTabs();
+            renderSingleStudentLivePreview();
+        }
+
+        // 학번으로 판별한 현재 학년에 맞춰 "현재 학년 / 다음 학년" 탭을 동적으로 구성합니다.
+        // - 1학년: 선택과목이 없는 학년이므로(학교지정만 존재) "2학년(다음 학년)" 탭만 표시
+        // - 2학년: "2학년(현재 학년)" + "3학년(다음 학년)" 두 탭 표시
+        // - 3학년: 더 이상 다음 학년이 없으므로 "3학년(현재 학년)" 탭만 표시
+        // - 학번 미입력/미분류: 어느 학년인지 알 수 없으므로 2·3학년 탭을 (현재/다음) 구분 없이 모두 표시
+        function getRelevantGradeTabs() {
+            const id = document.getElementById('ssStudentId').value.trim();
+            const grade = id ? studentGrade({ id }) : null;
+            if (grade === 1) return [{ grade: 2, label: '2학년 선택과목 (다음 학년)' }];
+            if (grade === 2) return [
+                { grade: 2, label: '2학년 선택과목 (현재 학년)' },
+                { grade: 3, label: '3학년 선택과목 (다음 학년)' }
+            ];
+            if (grade === 3) return [{ grade: 3, label: '3학년 선택과목 (현재 학년)' }];
+            return [
+                { grade: 2, label: '2학년 선택과목' },
+                { grade: 3, label: '3학년 선택과목' }
+            ];
+        }
+
+        function renderSingleStudentGradeTabs() {
+            const tabs = getRelevantGradeTabs();
+            if (!tabs.some(t => t.grade === ssSelectedGrade)) {
+                ssSelectedGrade = tabs[0].grade;
+            }
+            const box = document.getElementById('ssGradeTabContainer');
+            box.innerHTML = tabs.map(t => `<button type="button" onclick="setSingleStudentGrade(${t.grade})" class="ss-grade-btn text-xs px-4 py-1.5 rounded-full font-medium border transition ${t.grade === ssSelectedGrade ? 'active' : ''}">${t.label}</button>`).join('');
+            renderSingleStudentSemesterTabs();
+        }
+
+        function setSingleStudentGrade(g) {
+            ssSelectedGrade = g;
+            ssSelectedSemester = 1;
+            document.querySelectorAll('#ssGradeTabContainer .ss-grade-btn').forEach(btn => btn.classList.remove('active'));
+            renderSingleStudentGradeTabs();
+        }
+
+        // 편성표에 학기(1학기/2학기) 정보가 있는 과목이 하나라도 있으면 학기 서브탭을 표시합니다.
+        // (구버전 편성표처럼 학기 정보가 없으면 학기 구분 없이 학년 전체를 한 번에 보여줍니다.)
+        function renderSingleStudentSemesterTabs() {
+            const box = document.getElementById('ssSemesterTabContainer');
+            const year = document.getElementById('ssAdmissionYear').value;
+            const allInGrade = getElectiveSubjects(year, ssSelectedGrade, null);
+            const hasSemesterInfo = allInGrade.some(s => s.semester !== undefined && s.semester !== null);
+            if (!hasSemesterInfo) {
+                box.innerHTML = '';
+                ssSelectedSemester = null;
+                renderElectivePicker();
+                return;
+            }
+            if (ssSelectedSemester !== 1 && ssSelectedSemester !== 2) ssSelectedSemester = 1;
+            const semesters = [1, 2];
+            box.innerHTML = semesters.map(s => `<button type="button" onclick="setSingleStudentSemester(${s})" class="ss-semester-btn text-[11px] px-3 py-1 rounded-full border transition ${s === ssSelectedSemester ? 'active' : ''}">${s}학기</button>`).join('');
+            renderElectivePicker();
+        }
+
+        function setSingleStudentSemester(s) {
+            ssSelectedSemester = s;
+            document.querySelectorAll('#ssSemesterTabContainer .ss-semester-btn').forEach(btn => btn.classList.remove('active'));
+            renderSingleStudentSemesterTabs();
+        }
+
+        function toggleElectiveSubject(name, checked) {
+            const set = ssElectiveSelections[ssSelectedGrade][currentSemesterBucket()];
+            if (checked) set.add(name); else set.delete(name);
+        }
+
+        function renderElectiveCheckboxHtml(s, checked, contextId) {
+            const inputId = `ss_elective_${contextId}_${s.name}`.replace(/[^a-zA-Z0-9가-힣]/g, '_');
+            return `<label for="${inputId}" class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full border cursor-pointer transition ${checked ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}">
+                <input type="checkbox" id="${inputId}" ${checked ? 'checked' : ''} onchange="toggleElectiveSubject('${s.name.replace(/'/g, "\\'")}', this.checked); renderElectivePicker();" class="accent-indigo-600">
+                ${s.name} <span class="text-slate-400">(${s.credit})</span>
+            </label>`;
+        }
+
+        function renderElectivePicker() {
+            const box = document.getElementById('ssElectivePicker');
+            const year = document.getElementById('ssAdmissionYear').value;
+            const cur = appData.curriculumSets[year];
+            // 학년 전체 과목(학기 구분 없이) — 택N 그룹에 속한 과목의 학점/교과군 정보를 찾을 때 씁니다.
+            // 일부 과목(예: 식품안전과 건강)은 1학기·2학기 두 그룹에 동시에 걸쳐 있을 수 있어서,
+            // 개별 과목의 "대표 학기" 하나로만 필터링하면 다른 학기 그룹에서 사라져 보이는 문제가 있었습니다.
+            const gradeElectives = getElectiveSubjects(year, ssSelectedGrade, null);
+            // 현재 선택된 학기 전용 목록 — 어떤 택N 그룹에도 속하지 않는 과목(구버전 편성표 등)을
+            // 표시할 때만 사용합니다.
+            const semesterElectives = getElectiveSubjects(year, ssSelectedGrade, ssSelectedSemester);
+            if (gradeElectives.length === 0) {
+                const semLabel = ssSelectedSemester ? `·${ssSelectedSemester}학기` : '';
+                box.innerHTML = `<p class="text-xs text-slate-400 py-4">선택한 입학년도(${year || '-'})·${ssSelectedGrade}학년${semLabel}에 해당하는 선택과목 정보를 찾을 수 없습니다. 편성표가 없다면 "교육과정 편성표" 탭에서 먼저 업로드해주세요.</p>`;
+                renderSingleStudentLivePreview();
+                return;
+            }
+            const selectedSet = ssElectiveSelections[ssSelectedGrade][currentSemesterBucket()];
+            const bySubjectName = {};
+            gradeElectives.forEach(s => { bySubjectName[s.name] = s; });
+
+            // 편성표의 "택N" 그룹(예: 사회+과학 9학점 중 3과목 선택) 정보로 우선 묶어서 표시.
+            // 그룹에 속하지 않은 과목(구버전 편성표 등)은 교과군별로 묶어 아래에 별도 표시합니다.
+            const groups = (cur && cur.selectionGroups ? cur.selectionGroups : []).filter(g => {
+                if (g.grade !== ssSelectedGrade) return false;
+                if (ssSelectedSemester && g.semester !== undefined && g.semester !== null && g.semester !== ssSelectedSemester) return false;
+                return true;
+            });
+            const groupedNames = new Set();
+            let html = '';
+
+            groups.forEach(g => {
+                const subjectsInThisPool = g.subjects.filter(name => bySubjectName[name]);
+                if (subjectsInThisPool.length === 0) return;
+                subjectsInThisPool.forEach(name => groupedNames.add(name));
+                const selectedCount = subjectsInThisPool.filter(name => selectedSet.has(name)).length;
+                let counterClass = 'bg-slate-100 text-slate-600';
+                let counterIcon = 'fa-circle-info';
+                if (selectedCount === g.required) { counterClass = 'bg-emerald-100 text-emerald-700'; counterIcon = 'fa-circle-check'; }
+                else if (selectedCount > g.required) { counterClass = 'bg-rose-100 text-rose-700'; counterIcon = 'fa-triangle-exclamation'; }
+                else if (selectedCount > 0) { counterClass = 'bg-blue-100 text-blue-700'; counterIcon = 'fa-hourglass-half'; }
+                html += `
+                    <div class="border border-slate-100 rounded-xl p-3">
+                        <div class="flex items-center justify-between mb-2 flex-wrap gap-1.5">
+                            <span class="text-xs font-semibold text-slate-600">${subjectsInThisPool.length}과목 중 ${g.required}과목 선택</span>
+                            <span class="${counterClass} text-[11px] font-bold px-2 py-0.5 rounded-full"><i class="fa-solid ${counterIcon} mr-1"></i>${selectedCount} / ${g.required} 선택됨</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            ${subjectsInThisPool.map(name => renderElectiveCheckboxHtml(bySubjectName[name], selectedSet.has(name), g.id)).join('')}
+                        </div>
+                    </div>`;
+            });
+
+            const ungrouped = semesterElectives.filter(s => !groupedNames.has(s.name));
+            if (ungrouped.length > 0) {
+                const byCat = {};
+                ungrouped.forEach(s => { (byCat[s.category] = byCat[s.category] || []).push(s); });
+                Object.keys(byCat).sort().forEach(cat => {
+                    html += `
+                        <div class="border border-slate-100 rounded-xl p-3">
+                            <div class="text-xs font-semibold text-slate-600 mb-2">${cat} <span class="text-slate-400 font-normal">(선택 인원 제한 정보 없음)</span></div>
+                            <div class="flex flex-wrap gap-2">
+                                ${byCat[cat].map(s => renderElectiveCheckboxHtml(s, selectedSet.has(s.name), 'ungrouped_' + cat)).join('')}
+                            </div>
+                        </div>`;
+                });
+            }
+
+            box.innerHTML = html;
+            renderSingleStudentLivePreview();
+        }
+
+        // 과거에 저장된 학생 데이터에는 학기별 구분 정보(grade2PicksBySemester)가 없을 수 있습니다.
+        // 이 경우 편성표의 택N 그룹 정보를 참고해 최대한 정확히 학기별로 나눠 넣습니다.
+        // 한 과목이 1학기·2학기 그룹 모두에 걸쳐 있다면(예: 인공지능 기초*), 실제로 어느 학기에
+        // 선택했는지 알 수 없으므로 양쪽에 모두 표시합니다(선택 안 하는 것보다 안전한 기본값).
+        function distributeFlatPicksIntoSemesterBuckets(picks, grade, cur) {
+            const buckets = { 1: new Set(), 2: new Set() };
+            const groups = (cur && cur.selectionGroups ? cur.selectionGroups : []).filter(g => g.grade === grade);
+            (picks || []).forEach(name => {
+                const memberOf = groups.filter(g => g.subjects.includes(name));
+                if (memberOf.length === 0) {
+                    buckets[1].add(name); // 그룹 정보가 없으면 일단 1학기 버킷에 둠(구버전 호환)
+                } else {
+                    memberOf.forEach(g => { if (g.semester === 1 || g.semester === 2) buckets[g.semester].add(name); });
+                }
+            });
+            return buckets;
+        }
+
+        function loadSingleStudentForEdit() {
+            const id = document.getElementById('ssStudentId').value.trim();
+            const badge = document.getElementById('ssExistingBadge');
+            if (!id) { badge.classList.add('hidden'); renderSingleStudentGradeTabs(); return; }
+            const existing = appData.students[id];
+            if (existing) {
+                document.getElementById('ssStudentName').value = existing.name || '';
+                document.getElementById('ssCareer').value = existing.career || '';
+                if (existing.admissionYear && appData.curriculumSets[existing.admissionYear]) {
+                    document.getElementById('ssAdmissionYear').value = existing.admissionYear;
+                }
+                const cur = appData.curriculumSets[existing.admissionYear];
+                if (existing.grade2PicksBySemester) {
+                    ssElectiveSelections[2] = { 1: new Set(existing.grade2PicksBySemester[1] || []), 2: new Set(existing.grade2PicksBySemester[2] || []) };
+                } else {
+                    ssElectiveSelections[2] = distributeFlatPicksIntoSemesterBuckets(existing.grade2Picks, 2, cur);
+                }
+                if (existing.grade3PicksBySemester) {
+                    ssElectiveSelections[3] = { 1: new Set(existing.grade3PicksBySemester[1] || []), 2: new Set(existing.grade3PicksBySemester[2] || []) };
+                } else {
+                    ssElectiveSelections[3] = distributeFlatPicksIntoSemesterBuckets(existing.grade3Picks, 3, cur);
+                }
+                badge.classList.remove('hidden');
+                badge.innerHTML = `<i class="fa-solid fa-circle-info mr-1"></i>학번 ${id}로 등록된 기존 데이터를 불러왔습니다. 저장하면 이 학생의 정보가 갱신됩니다.`;
+            } else {
+                ssElectiveSelections[2] = { 1: new Set(), 2: new Set() };
+                ssElectiveSelections[3] = { 1: new Set(), 2: new Set() };
+                badge.classList.remove('hidden');
+                badge.innerHTML = `<i class="fa-solid fa-circle-plus mr-1"></i>학번 ${id}는 새 학생입니다. 아래 정보를 입력하고 저장하면 새로 등록됩니다.`;
+            }
+            renderSingleStudentGradeTabs();
+        }
+
+        function clearSingleStudentForm() {
+            document.getElementById('ssStudentId').value = '';
+            document.getElementById('ssStudentName').value = '';
+            document.getElementById('ssCareer').value = '';
+            document.getElementById('ssExistingBadge').classList.add('hidden');
+            ssElectiveSelections = { 2: { 1: new Set(), 2: new Set() }, 3: { 1: new Set(), 2: new Set() } };
+            document.getElementById('ssSaveStatus').innerHTML = '';
+            renderSingleStudentGradeTabs();
+        }
+
+        function renderSingleStudentLivePreview() {
+            const box = document.getElementById('ssLivePreview');
+            if (!box) return;
+            const year = document.getElementById('ssAdmissionYear').value;
+            const cur = appData.curriculumSets[year];
+            if (!cur) { box.innerHTML = '<p class="text-xs text-slate-400">입학년도를 먼저 선택해주세요.</p>'; return; }
+
+            const id = document.getElementById('ssStudentId').value.trim();
+            const grade = id ? studentGrade({ id }) : null;
+            const isFinalYear = grade === 3 || grade === null;
+
+            const grade2Picks = flattenGradeSelections(ssElectiveSelections[2]);
+            const grade3Picks = flattenGradeSelections(ssElectiveSelections[3]);
+            const result = computeValidationForPicks(grade2Picks, grade3Picks, cur, isFinalYear);
+
+            const items = [];
+
+            // 선수과목 위계
+            if (result.prereqErrors.length === 0) {
+                items.push(`<div class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3 py-2 rounded-lg"><i class="fa-solid fa-circle-check mr-1.5"></i>선수과목 위계: 정상</div>`);
+            } else {
+                result.prereqErrors.forEach(err => {
+                    items.push(`<div class="bg-rose-50 border border-rose-200 text-rose-800 text-xs px-3 py-2 rounded-lg"><i class="fa-solid fa-circle-exclamation mr-1.5"></i>${err}</div>`);
+                });
+            }
+
+            // 국·수·영 선택학점 상한
+            items.push(`<div class="${result.isBasicValid ? 'bg-slate-50 border-slate-200 text-slate-600' : 'bg-amber-50 border-amber-200 text-amber-800'} border text-xs px-3 py-2 rounded-lg">
+                <i class="fa-solid ${result.isBasicValid ? 'fa-circle-check' : 'fa-triangle-exclamation'} mr-1.5"></i>
+                국·수·영 선택학점: ${result.basicSelectedCredit}학점 (기준 ${cur.rules.basicMax}학점 이하) ${result.isBasicValid ? '· 적합' : '· 초과'}
+            </div>`);
+
+            // 생활·교양 선택학점 하한
+            let lifeState = '적합';
+            let lifeClass = 'bg-slate-50 border-slate-200 text-slate-600';
+            let lifeIcon = 'fa-circle-check';
+            if (!result.isLifeValid) {
+                if (result.isLifeInProgress) { lifeState = '진행중 (남은 학년에 이수 가능)'; lifeClass = 'bg-blue-50 border-blue-200 text-blue-700'; lifeIcon = 'fa-hourglass-half'; }
+                else { lifeState = '부족'; lifeClass = 'bg-amber-50 border-amber-200 text-amber-800'; lifeIcon = 'fa-triangle-exclamation'; }
+            }
+            items.push(`<div class="${lifeClass} border text-xs px-3 py-2 rounded-lg">
+                <i class="fa-solid ${lifeIcon} mr-1.5"></i>
+                생활·교양 선택학점: ${result.lifeSelectedCredit}학점 (기준 ${cur.rules.lifeMin}학점 이상) · ${lifeState}
+            </div>`);
+
+            // 필수 이수학점
+            if (result.requiredCreditErrors.length > 0) {
+                const detail = result.requiredCreditErrors.map(e => `${e.category}(${e.have}/${e.required})`).join(', ');
+                items.push(`<div class="bg-orange-50 border border-orange-200 text-orange-800 text-xs px-3 py-2 rounded-lg"><i class="fa-solid fa-clipboard-check mr-1.5"></i>필수 이수학점 미달: ${detail}</div>`);
+            }
+            if (result.requiredCreditInProgress.length > 0) {
+                const detail = result.requiredCreditInProgress.map(e => `${e.category}(${e.have}/${e.required})`).join(', ');
+                items.push(`<div class="bg-blue-50 border border-blue-200 text-blue-700 text-xs px-3 py-2 rounded-lg"><i class="fa-solid fa-hourglass-half mr-1.5"></i>필수 이수학점 진행중: ${detail}</div>`);
+            }
+            if (result.requiredCreditErrors.length === 0 && result.requiredCreditInProgress.length === 0) {
+                items.push(`<div class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3 py-2 rounded-lg"><i class="fa-solid fa-circle-check mr-1.5"></i>필수 이수학점: 충족</div>`);
+            }
+
+            if (!id) {
+                items.unshift(`<div class="bg-slate-50 border border-slate-200 text-slate-500 text-xs px-3 py-2 rounded-lg"><i class="fa-solid fa-circle-info mr-1.5"></i>학번을 입력하면 학년(1·2·3학년)에 따라 "진행중"과 "미달"을 정확히 구분해서 보여줍니다. 학번이 없으면 최종학년 기준(엄격)으로 표시됩니다.</div>`);
+            }
+
+            box.innerHTML = items.join('');
+        }
+
+        function saveSingleStudent() {
+            const id = document.getElementById('ssStudentId').value.trim();
+            const statusBox = document.getElementById('ssSaveStatus');
+            if (!id) {
+                statusBox.innerHTML = '<span class="text-rose-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>학번을 입력해주세요.</span>';
+                return;
+            }
+            const name = document.getElementById('ssStudentName').value.trim();
+            const career = document.getElementById('ssCareer').value.trim();
+            const admissionYear = document.getElementById('ssAdmissionYear').value;
+            if (!admissionYear) {
+                statusBox.innerHTML = '<span class="text-rose-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>입학년도를 선택해주세요. (편성표가 등록된 연도가 없다면 "교육과정 편성표" 탭에서 먼저 추가해주세요)</span>';
+                return;
+            }
+            const isNew = !appData.students[id];
+            if (!appData.students[id]) {
+                appData.students[id] = { id, name: '', gender: '', career: '', admissionYear, grade2Picks: [], grade3Picks: [] };
+            }
+            const st = appData.students[id];
+            st.name = name;
+            st.career = career;
+            st.admissionYear = admissionYear;
+            st.grade2Picks = flattenGradeSelections(ssElectiveSelections[2]);
+            st.grade3Picks = flattenGradeSelections(ssElectiveSelections[3]);
+            st.grade2PicksBySemester = { 1: Array.from(ssElectiveSelections[2][1]), 2: Array.from(ssElectiveSelections[2][2]) };
+            st.grade3PicksBySemester = { 1: Array.from(ssElectiveSelections[3][1]), 2: Array.from(ssElectiveSelections[3][2]) };
+
+            validateAllStudents();
+            renderDashboard();
+            populateStudentDropdown();
+            saveToLocalStorage();
+
+            statusBox.innerHTML = `<span class="text-emerald-600"><i class="fa-solid fa-circle-check mr-1"></i>${name || id} 학생 정보가 ${isNew ? '새로 등록' : '수정'}되었습니다. (2학년 선택 ${st.grade2Picks.length}과목 · 3학년 선택 ${st.grade3Picks.length}과목)</span>`;
+            document.getElementById('ssExistingBadge').classList.add('hidden');
+        }
+
+        // =====================================================================
+        // GEMINI AI EVALUATION
+        // =====================================================================
+        function populateStudentDropdown() {
+            const sel = document.getElementById('aiStudentSelect');
+            const current = sel.value;
+            sel.innerHTML = '<option value="">-- 학생을 선택하세요 --</option>';
+            studentIdList().forEach(id => {
+                const st = appData.students[id];
+                sel.innerHTML += `<option value="${id}">${st.name || '이름 미상'} (${st.id}) - ${st.career || '진로 미입력'}</option>`;
+            });
+            if (studentIdList().includes(current)) sel.value = current;
+        }
+
+        function loadStudentToAIEval() {
+            const id = document.getElementById('aiStudentSelect').value;
+            if (!id) return;
+            document.getElementById('aiCareerInput').value = appData.students[id].career || '';
+        }
+
+        async function runGeminiEvaluation() {
+            const id = document.getElementById('aiStudentSelect').value;
+            const career = document.getElementById('aiCareerInput').value.trim();
+            const apiKey = document.getElementById('geminiApiKey').value.trim();
+
+            if (!career) { alert('희망 진로 또는 목표 학과를 입력해주세요.'); return; }
+
+            const st = id && appData.students[id] ? appData.students[id] : {
+                name: '선택 학생', allSubjects: ['공통수학1', '공통수학2', '대수', '미적분 I', '물리학*', '화학', '정보*', '기하']
+            };
+
+            document.getElementById('aiResultContainer').classList.remove('hidden');
+            const feedbackBox = document.getElementById('aiFeedbackText');
+            feedbackBox.innerHTML = `<div class="p-8 text-center text-indigo-600 font-medium"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2 block"></i>${career} 진로와 과목 선택 간의 연계성을 분석 중입니다...</div>`;
+
+            const score = calculateCareerFitnessScore(career, st.allSubjects);
+            document.getElementById('aiScoreBadge').innerText = `${score}점`;
+            document.getElementById('aiScoreBar').style.width = `${score}%`;
+
+            document.getElementById('aiSelectedSubjectsChips').innerHTML = st.allSubjects.map(s =>
+                `<span class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded">${s}</span>`
+            ).join('');
+
+            const matchedCat = Object.keys(CAREER_RECOMMENDATIONS).find(k => career.includes(k) || k.includes(career));
+            const recs = CAREER_RECOMMENDATIONS[matchedCat] || CAREER_RECOMMENDATIONS['기계공학'];
+            const allBase = new Set(st.allSubjects.map(baseName));
+            const matched = recs.filter(s => allBase.has(baseName(s)));
+            const missing = recs.filter(s => !allBase.has(baseName(s)));
+
+            document.getElementById('aiMatchedSubjects').innerText = matched.length > 0 ? matched.join(', ') : '없음';
+            document.getElementById('aiMissingSubjects').innerText = missing.length > 0 ? missing.join(', ') : '모든 권장과목 이수 완료';
+
+            if (apiKey) {
+                document.getElementById('aiEngineLabel').innerText = 'Gemini 1.5 Live API';
+                try {
+                    const prompt = `당신은 대한민국 고교학점제 2022 개정 교육과정 전문 진로·진학 컨설턴트입니다.
+학생 희망 진로: "${career}"
+학생 선택 과목: ${st.allSubjects.join(', ')}
+
+위 과목 선택 데이터를 바탕으로 다음 내용을 평가해주세요:
+1. 희망 학과/진로와의 연계성 평가 (강점과 이점)
+2. 부족하거나 보완이 필요한 수강 권장 과목 추천
+3. 학교생활기록부 및 학업계획서 작성을 위한 구체적인 팁
+
+답변은 학생과 선생님이 바로 읽고 참고할 수 있도록 깔끔한 HTML formatted text (p, ul, li, strong 태그 활용)로 작성해주세요.`;
+
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+                    const data = await res.json();
+                    const text = data.candidates[0].content.parts[0].text;
+                    feedbackBox.innerHTML = text.replace(/```html/g, '').replace(/```/g, '');
+                    return;
+                } catch (e) {
+                    console.error('Gemini API 호출 실패, 내장 엔진으로 대체', e);
+                }
+            }
+
+            document.getElementById('aiEngineLabel').innerText = 'Rule-based AI Engine';
+            setTimeout(() => {
+                feedbackBox.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="p-4 bg-indigo-50 border border-indigo-200 rounded-2xl">
+                            <h5 class="font-bold text-indigo-950 mb-1"><i class="fa-solid fa-square-check text-indigo-600 mr-1.5"></i>1. 과목 선택 주요 강점 분석</h5>
+                            <p class="text-xs text-indigo-900 leading-relaxed">학생이 선택한 <strong>${matched.join(', ') || '기초 교과목'}</strong> 과목은 <strong>${career}</strong> 분야 전공 학문을 이수하기 위해 유용한 기반이 됩니다.</p>
+                        </div>
+                        <div class="p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                            <h5 class="font-bold text-amber-950 mb-1"><i class="fa-solid fa-compass text-amber-600 mr-1.5"></i>2. 학업계획 및 보완 추천 과목</h5>
+                            <p class="text-xs text-amber-900 leading-relaxed">대학 전공 적합성 평가 경쟁력을 높이기 위해 <strong>${missing.join(', ') || '융합 선택 과목'}</strong> 수강을 적극 권장합니다. 개설되지 않은 경우 공동교육과정이나 세부능력 및 특기사항(세특) 탐구 활동으로 보완할 수 있습니다.</p>
+                        </div>
+                        <div class="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                            <h5 class="font-bold text-slate-900 mb-1"><i class="fa-solid fa-pen-to-square text-slate-600 mr-1.5"></i>3. 생기부 진로 탐구 연계 팁</h5>
+                            <ul class="list-disc list-inside text-xs text-slate-700 space-y-1">
+                                <li>선택한 <strong>${st.allSubjects[st.allSubjects.length - 1] || '주요 과목'}</strong> 과목 시간을 활용해 ${career} 관련 최신 동향 탐구 보고서 작성하기</li>
+                                <li>수학·과학 과목에서 배운 이론을 ${career}의 실제 문제 해결에 적용해 본 경험 기록하기</li>
+                            </ul>
+                        </div>
+                    </div>`;
+            }, 400);
+        }
+
+        // =====================================================================
+        // EXCEL EXPORT
+        // =====================================================================
+        function exportResultExcel() {
+            const data = studentIdList().map(id => {
+                const s = appData.students[id];
+                const cur = curriculumForStudent(s);
+                return {
+                    '학번': s.id,
+                    '이름': s.name,
+                    '학년': studentGrade(s) ? `${studentGrade(s)}학년` : '미분류',
+                    '입학년도': s.admissionYear,
+                    '희망진로': s.career,
+                    '위계오류여부': s.prereqErrors.length === 0 ? '정상' : s.prereqErrors.join(' / '),
+                    '국수영선택학점': s.basicSelectedCredit,
+                    [`국수영기준(${cur.rules.basicMax}이하)`]: s.isBasicValid ? '적합' : '초과',
+                    '생활교양선택학점': s.lifeSelectedCredit,
+                    [`생활교양기준(${cur.rules.lifeMin}이상)`]: s.isLifeValid ? '적합' : (s.isLifeInProgress ? '진행중(남은학년에이수예정)' : '부족'),
+                    '필수이수학점충족여부': s.requiredCreditErrors.length > 0 ? '미달' : (s.requiredCreditInProgress.length > 0 ? '진행중(남은학년에이수예정)' : '충족'),
+                    '필수이수학점미달상세': s.requiredCreditErrors.map(e => `${e.category}(${e.have}/${e.required})`).join(', '),
+                    '필수이수학점진행중상세': s.requiredCreditInProgress.map(e => `${e.category}(${e.have}/${e.required})`).join(', '),
+                    '진로적합도': s.career ? `${s.fitnessScore}%` : '-',
+                    '미분류과목': s.unknownSubjects.join(', ')
+                };
+            });
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '수강신청검증결과');
+            XLSX.writeFile(wb, '주성고_수강신청_오류검증결과.xlsx');
+        }
+
+        // =====================================================================
+        // INIT
+        // =====================================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            const restored = loadFromLocalStorage();
+            refreshCurriculumYearUI();
+            if (restored) {
+                validateAllStudents();
+                renderDashboard();
+                populateStudentDropdown();
+                document.getElementById('studentParseStatus').innerHTML = Object.keys(appData.students).length > 0
+                    ? '<span class="text-emerald-600"><i class="fa-solid fa-circle-check mr-1"></i>이 브라우저에 저장되어 있던 이전 데이터를 불러왔습니다.</span>'
+                    : '<span class="text-slate-500">저장된 편성표를 불러왔습니다. 학생 데이터는 비어 있습니다.</span>';
+            } else {
+                loadDemoData();
+            }
+            updateSaveIndicator();
+            const savedCloudUrl = getCloudUrl();
+            if (savedCloudUrl) document.getElementById('cloudScriptUrl').value = savedCloudUrl;
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>트랜지스터 가상 실험실</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;700;800&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E6EAE6;
+  --panel:#FFFFFF;
+  --panel-2:#F3F6F2;
+  --ink:#16222A;
+  --ink-soft:#57666F;
+  --line:#CCD5CE;
+  --board:#14453C;
+  --board-2:#0D332C;
+  --silk:#E9F4EF;
+  --silk-dim:#7FA79B;
+  --copper:#D8A24A;
+  --sig-in:#C0432E;
+  --sig-out:#4A4FAE;
+  --live:#F5A93A;
+  --accent:#0F6B5C;
+  --accent-ink:#FFFFFF;
+  --on:#3F9E4D;
+  --off:#E2762B;
+  --shadow:0 1px 0 rgba(22,34,42,.05), 0 10px 24px -18px rgba(22,34,42,.65);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1315;
+    --panel:#161F22;
+    --panel-2:#1B262A;
+    --ink:#E6EDE9;
+    --ink-soft:#9DAEA9;
+    --line:#2A383C;
+    --shadow:0 1px 0 rgba(0,0,0,.2), 0 10px 24px -18px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1315;
+  --panel:#161F22;
+  --panel-2:#1B262A;
+  --ink:#E6EDE9;
+  --ink-soft:#9DAEA9;
+  --line:#2A383C;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  font-size:15px;line-height:1.65;
+}
+h1,h2,h3,.tab,.seg b{font-family:"Gothic A1","IBM Plex Sans KR",system-ui,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:0 18px 72px}
+
+/* ── header ─────────────────────────────── */
+header{padding:34px 0 18px}
+.eyebrow{color:var(--accent);font-weight:600;font-size:13.5px;letter-spacing:.01em;margin:0 0 6px}
+h1{font-size:clamp(28px,5vw,42px);font-weight:800;letter-spacing:-.02em;line-height:1.15;margin:0 0 10px}
+.lede{margin:0;max-width:60ch;color:var(--ink-soft)}
+
+/* ── tabs ───────────────────────────────── */
+nav.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:22px 0 20px;
+  border-bottom:1px solid var(--line);padding-bottom:0}
+.tab{appearance:none;border:1px solid transparent;border-bottom:none;background:none;color:var(--ink-soft);
+  font-size:14.5px;font-weight:700;padding:10px 15px;border-radius:9px 9px 0 0;cursor:pointer;
+  transform:translateY(1px)}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{background:var(--panel);color:var(--ink);border-color:var(--line);
+  box-shadow:0 -3px 0 var(--accent) inset}
+.tab:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{
+  outline:2.5px solid var(--accent);outline-offset:2px}
+
+/* ── layout ─────────────────────────────── */
+.panelgrid{display:grid;gap:16px;grid-template-columns:1fr}
+@media (min-width:920px){.panelgrid{grid-template-columns:minmax(0,1.3fr) minmax(300px,.95fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 16px 18px;box-shadow:var(--shadow)}
+.card h2{font-size:17px;margin:0 0 4px;font-weight:700;letter-spacing:-.01em}
+.card h3{font-size:14px;margin:18px 0 8px;font-weight:700;color:var(--ink)}
+.card h3:first-child{margin-top:0}
+.hint{color:var(--ink-soft);font-size:13px;margin:0 0 12px}
+.hidden{display:none !important}
+
+/* ── circuit board ──────────────────────── */
+.board{background:linear-gradient(170deg,var(--board),var(--board-2));border-radius:12px;padding:10px 6px;
+  border:1px solid rgba(0,0,0,.25);overflow-x:auto}
+.board svg{display:block;width:100%;height:auto;min-width:340px}
+.board svg text{font-family:"IBM Plex Sans KR",sans-serif;font-size:12px;fill:var(--silk)}
+.board svg text.dim{fill:var(--silk-dim);font-size:11px}
+.board svg text.num{fill:var(--copper);font-weight:600}
+.wire,.sym{fill:none;stroke:var(--silk);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.sym.fill{fill:var(--silk)}
+.node{fill:var(--silk)}
+.live .wire.loop,.live .sym.loop{stroke:var(--live)}
+.live .sym.loop.fill{fill:var(--live)}
+.livb .wire.base,.livb .sym.base{stroke:var(--copper)}
+.flow{stroke-dasharray:1 9;stroke-width:5;stroke-linecap:round;stroke:var(--live);opacity:0;fill:none}
+.live .flow{opacity:.85;animation:flow 1.4s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-40}}
+@media (prefers-reduced-motion: reduce){.live .flow{animation:none;opacity:.4}}
+.glow{fill:var(--live);opacity:0;transition:opacity .12s linear}
+.box{fill:rgba(255,255,255,.07);stroke:var(--silk);stroke-width:2}
+
+/* ── readouts ───────────────────────────── */
+.meters{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:12px}
+.meter{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.meter span{display:block;font-size:12px;color:var(--ink-soft)}
+.meter b{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.meter.in b{color:var(--sig-in)} .meter.out b{color:var(--sig-out)}
+
+/* ── controls ───────────────────────────── */
+.ctlrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line)}
+.ctlrow:last-child{border-bottom:none}
+.ctlrow .lab{font-size:13.5px}
+.ctlrow .lab small{display:block;color:var(--ink-soft);font-size:11.5px;line-height:1.3}
+.stepper{display:flex;align-items:center;gap:2px;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:2px}
+.stepper button{width:30px;height:30px;border:none;background:none;color:var(--ink);font-size:17px;line-height:1;border-radius:7px;cursor:pointer}
+.stepper button:hover{background:var(--line)}
+.stepper .val{min-width:74px;text-align:center;font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+
+/* SPARKvue 스타일 켬/끔 토글 */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel-2)}
+.seg button{border:none;background:none;padding:7px 18px;font-size:13.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;font-family:inherit}
+.seg button[aria-pressed="true"]{color:#fff}
+.seg button.on[aria-pressed="true"]{background:var(--on)}
+.seg button.off[aria-pressed="true"]{background:var(--off)}
+.choice{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.choice button{flex:1 1 auto;border:1px solid var(--line);background:var(--panel-2);color:var(--ink-soft);
+  padding:9px 12px;border-radius:9px;font:600 13.5px/1.2 inherit;cursor:pointer}
+.choice button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn{border:1px solid var(--line);background:var(--panel-2);color:var(--ink);padding:9px 14px;border-radius:9px;
+  font:600 13.5px/1.2 inherit;cursor:pointer}
+.btn:hover{border-color:var(--ink-soft)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.rec{background:var(--copper);border-color:var(--copper);color:#26180a}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.tip{margin-top:10px;font-size:13px;color:var(--ink-soft);background:var(--panel-2);border-left:3px solid var(--copper);
+  border-radius:0 8px 8px 0;padding:9px 12px}
+.tip.alarm{border-left-color:var(--off)}
+
+/* ── tables ─────────────────────────────── */
+table{width:100%;border-collapse:collapse;margin:8px 0 4px;font-size:13.5px}
+th,td{border:1px solid var(--line);padding:9px 10px;text-align:center}
+th{background:var(--panel-2);font-weight:700;font-size:12.5px}
+td{font-variant-numeric:tabular-nums;font-size:16px;font-weight:600;height:46px}
+td.empty{color:var(--ink-soft);font-weight:400;font-size:13px}
+.scroll{overflow-x:auto}
+
+/* ── questions ──────────────────────────── */
+.q{border-top:1px solid var(--line);padding-top:14px;margin-top:16px}
+.q ol{margin:0;padding-left:20px}
+.q li{margin-bottom:12px}
+details{margin-top:6px}
+summary{cursor:pointer;font-size:13px;color:var(--accent);font-weight:600;width:fit-content}
+details p{margin:6px 0 0;font-size:13.5px;color:var(--ink-soft);background:var(--panel-2);padding:10px 12px;border-radius:9px}
+
+/* ── graph ──────────────────────────────── */
+.graphwrap{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:8px}
+canvas{display:block;width:100%;height:260px}
+.legend{display:flex;gap:16px;font-size:12.5px;color:var(--ink-soft);padding:4px 6px 0}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+
+/* ── level meter ────────────────────────── */
+.vu{height:14px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:10px}
+.vu i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--copper),var(--off));
+  transition:width .06s linear}
+footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);color:var(--ink-soft);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <p class="eyebrow">고등학교 과학 · 전기와 전자</p>
+  <h1>트랜지스터 가상 실험실</h1>
+  <p class="lede">실제 실험 기구 없이 회로를 켜고, 전압을 0.1&nbsp;V씩 올리고, 그래프를 얻고, 소리까지 들어 봅니다.
+    저항·축전기·건전지 값을 바꾸면 회로가 어떻게 달라지는지 바로 확인할 수 있습니다.</p>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button class="tab" role="tab" data-tab="t1" aria-selected="true">실험 1 · 스위치 작용</button>
+  <button class="tab" role="tab" data-tab="t2" aria-selected="false">실험 2 · 전류 증폭률</button>
+  <button class="tab" role="tab" data-tab="t3" aria-selected="false">추가 실험 · 스피커 증폭</button>
+</nav>
+
+<!-- ════════════ 실험 1 ════════════ -->
+<section id="t1" class="panelgrid" role="tabpanel">
+  <div class="card">
+    <h2>트랜지스터의 스위치 작용</h2>
+    <p class="hint">LED를 직접 연결했을 때와, 트랜지스터를 거쳐 연결했을 때 LED가 켜지는 최소 전압을 비교합니다.</p>
+    <div class="choice" role="group" aria-label="회로 선택">
+      <button data-e1mode="pre" aria-pressed="true">사전 실험 · LED 직접 연결</button>
+      <button data-e1mode="tr" aria-pressed="false">실험 1 · 트랜지스터 회로</button>
+    </div>
+
+    <div class="board">
+      <!-- 사전 실험 회로 -->
+      <svg id="svg-pre" viewBox="0 0 420 200" role="img" aria-label="LED와 AC/DC 모듈만 연결한 회로">
+        <defs>
+          <g id="sym-res"><path class="sym" d="M-30 0 L-23 0 L-19 -11 L-11 11 L-3 -11 L5 11 L13 -11 L21 11 L25 0 L30 0"/></g>
+          <g id="sym-led">
+            <polygon class="sym fill" points="-16,-13 -16,13 12,0"/>
+            <path class="sym" d="M14 -14 L14 14"/>
+          </g>
+          <g id="sym-bat">
+            <path class="sym" d="M-22 -15 L-22 15 M-13 -8 L-13 8 M-4 -15 L-4 15 M5 -8 L5 8 M14 -15 L14 15 M22 -8 L22 8"/>
+          </g>
+          <g id="sym-cap">
+            <path class="sym" d="M-5 -14 L-5 14"/>
+            <path class="sym" d="M7 -14 Q1 0 7 14"/>
+          </g>
+        </defs>
+        <g class="grp">
+          <path class="wire loop" d="M70 40 L350 40 M350 40 L350 68 M350 132 L350 160 M350 160 L70 160 M70 160 L70 118 M70 82 L70 40"/>
+          <path class="flow" d="M70 40 L350 40"/>
+          <circle class="glow" id="pre-glow" cx="70" cy="100" r="26"/>
+          <g transform="translate(70,100) rotate(90)"><use href="#sym-led"/></g>
+          <path class="sym" id="pre-rays" d="M36 76 L20 64 M42 96 L24 92" stroke="var(--live)" opacity="0"/>
+          <rect class="box" x="315" y="68" width="70" height="64" rx="8"/>
+          <path class="sym" d="M333 100 q8 -11 17 0 t17 0" stroke-width="2.2"/>
+          <text x="350" y="148" text-anchor="middle" class="dim">AC/DC 모듈</text>
+          <text x="350" y="86" text-anchor="middle" class="num" id="pre-v">0.0 V</text>
+          <text x="70" y="182" text-anchor="middle" class="dim">LED</text>
+        </g>
+      </svg>
+
+      <!-- 트랜지스터 회로 -->
+      <svg id="svg-e1" class="hidden" viewBox="0 0 500 300" role="img" aria-label="트랜지스터 스위치 회로">
+        <g class="grp">
+          <!-- 컬렉터 쪽 큰 회로 -->
+          <path class="wire loop" d="M60 55 L110 55 M170 55 L212 55 M243 55 L332 55 M332 55 L332 114"/>
+          <path class="wire loop" d="M332 186 L332 250 M332 250 L60 250 M60 250 L60 168 M60 122 L60 55"/>
+          <path class="flow" d="M60 55 L332 55"/>
+          <g transform="translate(140,55)"><use href="#sym-res" class="loop"/></g>
+          <circle class="glow" id="e1-glow" cx="228" cy="55" r="26"/>
+          <g transform="translate(228,55)"><use href="#sym-led" class="loop"/></g>
+          <path class="sym" id="e1-rays" d="M216 34 L206 20 M234 32 L230 16" stroke="var(--live)" opacity="0"/>
+          <g transform="translate(60,145) rotate(90)"><use href="#sym-bat" class="loop"/></g>
+          <!-- 트랜지스터 -->
+          <circle cx="330" cy="150" r="37" class="sym"/>
+          <path class="sym base" d="M314 126 L314 174" stroke-width="4"/>
+          <path class="sym loop" d="M314 137 L332 116"/>
+          <path class="sym loop" d="M314 163 L332 184"/>
+          <polygon class="sym fill loop" points="322,170 331,179 320,180"/>
+          <path class="wire base" d="M314 150 L230 150 M230 150 L230 205 M230 205 L250 205 M310 205 L378 205"/>
+          <g transform="translate(280,205)"><use href="#sym-res" class="base"/></g>
+          <rect class="box" x="378" y="175" width="70" height="60" rx="8"/>
+          <path class="sym" d="M396 205 q8 -11 17 0 t17 0" stroke-width="2.2"/>
+          <path class="wire base" d="M413 235 L413 250"/>
+          <circle class="node" cx="413" cy="250" r="3.5"/>
+          <text x="348" y="112" class="dim">C</text>
+          <text x="348" y="196" class="dim">E</text>
+          <text x="292" y="122" class="dim">B</text>
+          <text x="140" y="38" text-anchor="middle" class="num" id="e1-rc">330 Ω</text>
+          <text x="280" y="188" text-anchor="middle" class="num" id="e1-rb">22 kΩ</text>
+          <text x="413" y="167" text-anchor="middle" class="num" id="e1-vin">0.0 V</text>
+          <text x="413" y="264" text-anchor="middle" class="dim">AC/DC 모듈</text>
+          <text x="60" y="196" text-anchor="middle" class="num" id="e1-vcc">6.0 V</text>
+          <text x="228" y="84" text-anchor="middle" class="dim">LED</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="meters">
+      <div class="meter in"><span>입력 전압 (AC/DC)</span><b id="m1-vin">0.00 V</b></div>
+      <div class="meter"><span id="m1-iblab">베이스 전류</span><b id="m1-ib">0.000 mA</b></div>
+      <div class="meter out"><span id="m1-iclab">LED에 흐르는 전류</span><b id="m1-ic">0.00 mA</b></div>
+      <div class="meter"><span>LED 상태</span><b id="m1-led">꺼짐</b></div>
+    </div>
+    <p class="tip hidden" id="e1-flag">LED에 처음 불이 들어왔습니다. 이 전압을 아래 표에 기록해 보세요.</p>
+  </div>
+
+  <div class="card">
+    <h3>함수발생기 제어판</h3>
+    <div class="ctlrow">
+      <div class="lab">전원<small>끔을 누르면 전압이 0 V로 돌아갑니다</small></div>
+      <div class="seg" role="group" aria-label="함수발생기 전원">
+        <button class="on" id="e1-on" aria-pressed="false">켬</button>
+        <button class="off" id="e1-off" aria-pressed="true">끔</button>
+      </div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">출력 전압<small>0.1 V씩 올리며 관찰</small></div>
+      <div class="stepper" data-ctl="e1.v"><button data-d="-1" aria-label="전압 낮추기">−</button><span class="val"></span><button data-d="1" aria-label="전압 올리기">+</button></div>
+    </div>
+    <input type="range" id="e1-slider" min="0" max="5" step="0.1" value="0" aria-label="출력 전압 슬라이더">
+
+    <h3>부품 값 바꾸기</h3>
+    <div class="ctlrow">
+      <div class="lab">베이스 저항<small>AC/DC 모듈 → 베이스</small></div>
+      <div class="stepper" data-ctl="e1.Rb"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">컬렉터 저항<small>LED 보호용</small></div>
+      <div class="stepper" data-ctl="e1.Rc"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">건전지<small>1.5 V 전지 직렬 연결</small></div>
+      <div class="stepper" data-ctl="e1.cells"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <p class="tip">저항을 바꾸면 LED 밝기와 전류가 달라집니다. 베이스 저항을 키우면 같은 입력 전압에서 베이스 전류가 줄어듭니다.</p>
+  </div>
+
+  <div class="card" style="grid-column:1/-1">
+    <h3>실험 결과</h3>
+    <div class="scroll">
+      <table>
+        <tr><th>LED가 작동하는 최소 전압 (V)</th><th>트랜지스터 회로에서 LED가 작동하는 최소 전압 (V)</th></tr>
+        <tr><td class="empty" id="rec-pre">기록 전</td><td class="empty" id="rec-tr">기록 전</td></tr>
+      </table>
+    </div>
+    <div class="btnrow">
+      <button class="btn rec" id="e1-record">지금 전압을 표에 기록</button>
+      <button class="btn" id="e1-clear">표 지우기</button>
+    </div>
+    <div class="q">
+      <ol>
+        <li>사전 실험에서 LED가 작동하는 최소 전압은 얼마인가?
+          <details><summary>확인하기</summary><p>LED는 문턱 전압(약 1.8 V) 이상이 걸려야 빛이 납니다. 전압을 0.1 V씩 올리면 1.8 V 부근에서 처음 불이 켜집니다.</p></details></li>
+        <li>트랜지스터 회로에서 LED가 작동하는 최소 전압은 얼마인가?
+          <details><summary>확인하기</summary><p>약 0.7~0.8 V입니다. 베이스–이미터 사이에 0.7 V 정도만 걸리면 베이스 전류가 흐르기 시작하고, 곧바로 컬렉터 쪽에 훨씬 큰 전류가 흘러 LED가 켜집니다.</p></details></li>
+        <li>트랜지스터는 회로에서 어떤 기능을 하는가?
+          <details><summary>확인하기</summary><p>아주 작은 입력(베이스 전압·전류)으로 건전지에서 나오는 큰 전류를 켜고 끄는 <b>스위치</b> 역할을 합니다. 입력이 문턱을 넘는 순간 컬렉터 전류가 크게 흐르므로, 작은 신호로 큰 전류를 조종하는 <b>증폭</b> 작용이기도 합니다.</p></details></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ 실험 2 ════════════ -->
+<section id="t2" class="panelgrid hidden" role="tabpanel">
+  <div class="card">
+    <h2>트랜지스터의 전류 증폭률</h2>
+    <p class="hint">실험 1의 회로에서 LED를 빼고, 330 Ω 저항에 걸리는 전압을 전압 센서로 측정합니다.
+      AC/DC 모듈의 신호가 입력 전압, 저항에 걸린 전압이 출력 전압입니다.</p>
+    <div class="board">
+      <svg id="svg-e2" viewBox="0 0 500 300" role="img" aria-label="전압 센서를 연결한 트랜지스터 회로">
+        <g class="grp">
+          <path class="wire loop" d="M60 55 L110 55 M170 55 L332 55 M332 55 L332 114"/>
+          <path class="wire loop" d="M332 186 L332 250 M332 250 L60 250 M60 250 L60 168 M60 122 L60 55"/>
+          <path class="flow" d="M60 55 L332 55"/>
+          <g transform="translate(140,55)"><use href="#sym-res" class="loop"/></g>
+          <g transform="translate(60,145) rotate(90)"><use href="#sym-bat" class="loop"/></g>
+          <!-- 전압 센서 -->
+          <path class="wire" d="M110 55 L110 25 L155 25 M189 25 L230 25 L230 55" stroke="var(--sig-out)"/>
+          <circle cx="172" cy="25" r="16" class="sym" stroke="var(--sig-out)"/>
+          <text x="172" y="30" text-anchor="middle" style="fill:var(--sig-out);font-weight:700">V</text>
+          <text x="246" y="29" class="dim">전압 센서</text>
+          <text x="246" y="44" class="num" id="e2-sense">0.00 V</text>
+          <circle class="node" cx="110" cy="55" r="3.5"/><circle class="node" cx="230" cy="55" r="3.5"/>
+          <!-- 트랜지스터 -->
+          <circle cx="330" cy="150" r="37" class="sym"/>
+          <path class="sym base" d="M314 126 L314 174" stroke-width="4"/>
+          <path class="sym loop" d="M314 137 L332 116"/>
+          <path class="sym loop" d="M314 163 L332 184"/>
+          <polygon class="sym fill loop" points="322,170 331,179 320,180"/>
+          <path class="wire base" d="M314 150 L230 150 M230 150 L230 205 M230 205 L250 205 M310 205 L378 205"/>
+          <g transform="translate(280,205)"><use href="#sym-res" class="base"/></g>
+          <rect class="box" x="378" y="175" width="70" height="60" rx="8"/>
+          <path class="sym" d="M396 205 q8 -11 17 0 t17 0" stroke-width="2.2"/>
+          <path class="wire base" d="M413 235 L413 250"/>
+          <circle class="node" cx="413" cy="250" r="3.5"/>
+          <text x="348" y="112" class="dim">C</text>
+          <text x="348" y="196" class="dim">E</text>
+          <text x="292" y="122" class="dim">B</text>
+          <text x="140" y="80" text-anchor="middle" class="num" id="e2-rc">330 Ω</text>
+          <text x="280" y="188" text-anchor="middle" class="num" id="e2-rb">22 kΩ</text>
+          <text x="413" y="167" text-anchor="middle" class="num" id="e2-vin">0.00 V</text>
+          <text x="413" y="264" text-anchor="middle" class="dim">AC/DC 모듈</text>
+          <text x="60" y="196" text-anchor="middle" class="num" id="e2-vcc">6.0 V</text>
+        </g>
+      </svg>
+    </div>
+    <div class="graphwrap" style="margin-top:12px">
+      <canvas id="graph" width="900" height="520" aria-label="입력 전압과 출력 전압 그래프"></canvas>
+      <div class="legend">
+        <span><i style="background:var(--sig-in)"></i>입력 전압 (AC/DC 모듈)</span>
+        <span><i style="background:var(--sig-out)"></i>출력 전압 (330 Ω 저항)</span>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button class="btn primary" id="e2-run">측정 시작</button>
+      <button class="btn" id="e2-cursor" aria-pressed="false">멀티 좌표 도구</button>
+      <button class="btn" id="e2-zoom" aria-pressed="false">사인파 1개만 보기</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>함수발생기 제어판</h3>
+    <div class="ctlrow">
+      <div class="lab">파형</div>
+      <div class="stepper" data-ctl="e2.wave"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">주파수<small>1 Hz 권장</small></div>
+      <div class="stepper" data-ctl="e2.freq"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">진폭<small>1.5 V 권장</small></div>
+      <div class="stepper" data-ctl="e2.amp"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">자동적인<small>측정을 시작하면 함수발생기가 함께 켜짐</small></div>
+      <div class="seg" role="group" aria-label="자동적인">
+        <button class="on" id="e2-auto-on" aria-pressed="true">켬</button>
+        <button class="off" id="e2-auto-off" aria-pressed="false">끔</button>
+      </div>
+    </div>
+
+    <h3>부품 값 바꾸기</h3>
+    <div class="ctlrow">
+      <div class="lab">베이스 저항</div>
+      <div class="stepper" data-ctl="e2.Rb"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">컬렉터 저항</div>
+      <div class="stepper" data-ctl="e2.Rc"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">건전지</div>
+      <div class="stepper" data-ctl="e2.cells"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">트랜지스터 작동 전압<small>실험 1에서 확인한 값</small></div>
+      <div class="stepper" data-ctl="e2.vtr"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <p class="tip">출력 전압이 위쪽에서 평평해지면 트랜지스터가 포화된 것입니다. 건전지 전압을 올리거나 컬렉터 저항을 키우면 평평한 구간이 사라집니다.</p>
+  </div>
+
+  <div class="card" style="grid-column:1/-1">
+    <h3>실험 결과</h3>
+    <div class="scroll">
+      <table>
+        <tr><th>최대 입력 전압 (V)</th><th>최대 출력 전압 (V)</th><th>트랜지스터의 작동 전압 (V)</th></tr>
+        <tr><td class="empty" id="r2-vin">측정 전</td><td class="empty" id="r2-vout">측정 전</td><td id="r2-vtr">0.7</td></tr>
+      </table>
+      <table>
+        <tr><th>베이스 전류 (mA)</th><th>컬렉터 전류 (mA)</th><th>전류 증폭률</th></tr>
+        <tr><td class="empty" id="r2-ib">계산 전</td><td class="empty" id="r2-ic">계산 전</td><td class="empty" id="r2-beta">계산 전</td></tr>
+      </table>
+    </div>
+    <div class="btnrow"><button class="btn rec" id="e2-calc">전류와 증폭률 계산</button></div>
+    <p class="tip" id="e2-formula">베이스 전류(mA) = (최대 입력 전압 − 작동 전압) ÷ 22 kΩ &nbsp;·&nbsp;
+      컬렉터 전류(mA) = 최대 출력 전압 ÷ 0.33 kΩ &nbsp;·&nbsp; 전류 증폭률 = 컬렉터 전류 ÷ 베이스 전류</p>
+    <div class="q">
+      <ol>
+        <li>입력 전압과 출력 전압 그래프를 비교해 보자. 어느 쪽의 최대 전압이 더 큰가?
+          <details><summary>확인하기</summary><p>보통 입력 전압이 더 큽니다. 전압만 보면 오히려 작아졌지만, 전류로 바꿔 계산하면 컬렉터 전류가 베이스 전류보다 수백 배 큽니다. 트랜지스터가 키우는 것은 <b>전압이 아니라 전류</b>라는 점이 이 실험의 핵심입니다.</p></details></li>
+        <li>출력 전압 그래프는 왜 사인파의 위쪽 절반만 남고, 아래쪽은 0에 붙어 있을까?
+          <details><summary>확인하기</summary><p>입력 전압이 작동 전압(약 0.7 V)보다 낮으면 베이스 전류가 흐르지 않아 컬렉터 전류도 0이기 때문입니다. 이 트랜지스터 회로는 한쪽 방향 신호만 전달합니다.</p></details></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ 추가 실험 ════════════ -->
+<section id="t3" class="panelgrid hidden" role="tabpanel">
+  <div class="card">
+    <h2>스피커 증폭 회로</h2>
+    <p class="hint">같은 세기의 신호를 스피커에 바로 넣었을 때와, 트랜지스터 회로를 거쳐 넣었을 때의 소리 크기를 비교합니다.
+      실제로 소리가 납니다.</p>
+    <div class="choice" role="group" aria-label="회로 선택">
+      <button data-e3mode="direct" aria-pressed="true">스피커 직접 연결</button>
+      <button data-e3mode="tr" aria-pressed="false">트랜지스터 증폭 회로</button>
+    </div>
+
+    <div class="board">
+      <!-- 직접 연결 -->
+      <svg id="svg-e3a" viewBox="0 0 420 200" role="img" aria-label="스피커와 AC/DC 모듈만 연결한 회로">
+        <g class="grp">
+          <path class="wire loop" d="M70 40 L350 40 M350 40 L350 68 M350 132 L350 160 M350 160 L70 160 M70 160 L70 130 M70 70 L70 40"/>
+          <path class="flow" d="M70 40 L350 40"/>
+          <rect class="box" x="38" y="70" width="64" height="60" rx="8"/>
+          <g id="cone-a" transform="translate(70,100)">
+            <rect class="sym fill" x="-16" y="-9" width="12" height="18"/>
+            <polygon class="sym fill" points="-4,-14 10,-22 10,22 -4,14"/>
+          </g>
+          <path class="sym" id="wave-a" d="M20 88 q-7 12 0 24 M12 82 q-11 18 0 36" stroke="var(--live)" opacity="0"/>
+          <rect class="box" x="315" y="68" width="70" height="64" rx="8"/>
+          <path class="sym" d="M333 100 q8 -11 17 0 t17 0" stroke-width="2.2"/>
+          <text x="350" y="148" text-anchor="middle" class="dim">AC/DC 모듈</text>
+          <text x="350" y="86" text-anchor="middle" class="num" id="e3a-amp">0.1 V</text>
+          <text x="70" y="148" text-anchor="middle" class="dim">스피커</text>
+        </g>
+      </svg>
+
+      <!-- 트랜지스터 증폭 -->
+      <svg id="svg-e3b" class="hidden" viewBox="0 0 500 300" role="img" aria-label="트랜지스터 스피커 증폭 회로">
+        <g class="grp">
+          <path class="wire loop" d="M60 55 L246 55 M310 55 L332 55 M332 55 L332 114"/>
+          <path class="wire loop" d="M332 186 L332 250 M332 250 L60 250 M60 250 L60 168 M60 122 L60 55"/>
+          <path class="flow" d="M60 55 L332 55"/>
+          <rect class="box" x="246" y="26" width="64" height="58" rx="8"/>
+          <g id="cone-b" transform="translate(278,55)">
+            <rect class="sym fill" x="-15" y="-8" width="11" height="16"/>
+            <polygon class="sym fill" points="-4,-13 9,-20 9,20 -4,13"/>
+          </g>
+          <path class="sym" id="wave-b" d="M330 40 q-7 12 0 24" stroke="var(--live)" opacity="0" transform="translate(-6,0)"/>
+          <text x="278" y="100" text-anchor="middle" class="dim">스피커</text>
+          <g transform="translate(60,145) rotate(90)"><use href="#sym-bat" class="loop"/></g>
+          <text x="60" y="196" text-anchor="middle" class="num" id="e3-vcc">6.0 V</text>
+          <!-- 1kΩ 바이어스 -->
+          <path class="wire base" d="M150 55 L150 75 M150 135 L150 150 M150 150 L314 150"/>
+          <g transform="translate(150,105) rotate(90)"><use href="#sym-res" class="base"/></g>
+          <circle class="node" cx="150" cy="55" r="3.5"/>
+          <text x="166" y="110" class="num" id="e3-r1">1 kΩ</text>
+          <!-- 트랜지스터 -->
+          <circle cx="330" cy="150" r="37" class="sym"/>
+          <path class="sym base" d="M314 126 L314 174" stroke-width="4"/>
+          <path class="sym loop" d="M314 137 L332 116"/>
+          <path class="sym loop" d="M314 163 L332 184"/>
+          <polygon class="sym fill loop" points="322,170 331,179 320,180"/>
+          <text x="348" y="112" class="dim">C</text><text x="348" y="196" class="dim">E</text><text x="292" y="122" class="dim">B</text>
+          <!-- 축전기 + 22k -->
+          <path class="wire base" d="M230 150 L230 205 M230 205 L251 205 M263 205 L378 205 M230 205 L190 205 M190 205 L190 214 M190 246 L190 250"/>
+          <circle class="node" cx="230" cy="150" r="3.5"/><circle class="node" cx="230" cy="205" r="3.5"/>
+          <g transform="translate(257,205)"><use href="#sym-cap" class="base"/></g>
+          <g transform="translate(190,230) rotate(90)"><use href="#sym-res" class="base"/></g>
+          <text x="257" y="236" text-anchor="middle" class="num" id="e3-cap">220 µF</text>
+          <text x="128" y="234" class="num" id="e3-r22">22 kΩ</text>
+          <rect class="box" x="378" y="175" width="70" height="60" rx="8"/>
+          <path class="sym" d="M396 205 q8 -11 17 0 t17 0" stroke-width="2.2"/>
+          <path class="wire base" d="M413 235 L413 250"/>
+          <circle class="node" cx="413" cy="250" r="3.5"/>
+          <text x="413" y="167" text-anchor="middle" class="num" id="e3b-amp">0.1 V</text>
+          <text x="413" y="264" text-anchor="middle" class="dim">AC/DC 모듈</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="vu"><i id="vu-bar"></i></div>
+    <div class="meters">
+      <div class="meter in"><span>입력 진폭</span><b id="m3-amp">0.10 V</b></div>
+      <div class="meter out"><span>스피커에 걸리는 진폭</span><b id="m3-out">0.10 V</b></div>
+      <div class="meter"><span>증폭 배율</span><b id="m3-gain">1.0 배</b></div>
+      <div class="meter"><span>소리 크기 차이</span><b id="m3-db">0 dB</b></div>
+    </div>
+    <p class="tip alarm">소리가 납니다. 이어폰을 쓰고 있다면 기기 볼륨을 먼저 낮춰 주세요.</p>
+  </div>
+
+  <div class="card">
+    <h3>소리 신호</h3>
+    <div class="choice" role="group" aria-label="소리 신호 선택">
+      <button data-e3src="fg" aria-pressed="true">함수발생기 500 Hz</button>
+      <button data-e3src="music" aria-pressed="false">모바일 기기 음악</button>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">전원<small>재생과 정지</small></div>
+      <div class="seg" role="group" aria-label="소리 재생">
+        <button class="on" id="e3-on" aria-pressed="false">켬</button>
+        <button class="off" id="e3-off" aria-pressed="true">끔</button>
+      </div>
+    </div>
+    <div class="ctlrow" id="row-freq">
+      <div class="lab">주파수</div>
+      <div class="stepper" data-ctl="e3.freq"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">진폭<small>0.1 V씩, 최대 0.9 V</small></div>
+      <div class="stepper" data-ctl="e3.amp"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">기기 볼륨<small>귀 보호용</small></div>
+      <div class="stepper" data-ctl="e3.vol"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+
+    <h3>부품 값 바꾸기</h3>
+    <div class="ctlrow">
+      <div class="lab">축전기<small>신호를 통과시키는 통로</small></div>
+      <div class="stepper" data-ctl="e3.cap"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">바이어스 저항<small>건전지 → 베이스</small></div>
+      <div class="stepper" data-ctl="e3.r1"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">입력 저항<small>베이스 → 접지</small></div>
+      <div class="stepper" data-ctl="e3.r22"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <div class="ctlrow">
+      <div class="lab">건전지</div>
+      <div class="stepper" data-ctl="e3.cells"><button data-d="-1">−</button><span class="val"></span><button data-d="1">+</button></div>
+    </div>
+    <p class="tip" id="e3-note">축전기를 작게 하면 낮은 음이 먼저 사라집니다. 음악을 틀어 놓고 220 µF와 0.1 µF를 번갈아 눌러 보세요.</p>
+  </div>
+
+  <div class="card" style="grid-column:1/-1">
+    <h3>실험 결과</h3>
+    <div class="q" style="border-top:none;padding-top:0;margin-top:0">
+      <ol>
+        <li>AC/DC 모듈로 인가한 진폭이 같다면, 트랜지스터 회로를 사용했을 때와 사용하지 않았을 때 중 어느 쪽 소리가 더 큰가?
+          <details><summary>확인하기</summary><p>트랜지스터 회로를 사용했을 때가 훨씬 큽니다. 작은 입력 신호가 베이스 전류를 조금 바꾸면, 건전지에서 공급되는 컬렉터 전류가 그보다 훨씬 크게 바뀌면서 스피커를 세게 흔들기 때문입니다. 소리의 에너지는 입력 신호가 아니라 <b>건전지</b>에서 나옵니다.</p></details></li>
+        <li>진폭을 계속 올리면 소리가 커지다가 어느 순간 찢어지듯 일그러진다. 왜 그럴까?
+          <details><summary>확인하기</summary><p>출력이 건전지 전압의 한계를 넘어서면 파형의 윗부분과 아랫부분이 잘려 나가기 때문입니다(포화·차단). 건전지를 더 많이 연결하면 일그러지기 시작하는 진폭이 높아집니다.</p></details></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<footer>
+  교실용 가상 실험입니다. 실제 부품의 특성(β≈150, 베이스–이미터 전압 0.7 V, LED 문턱 전압 1.8 V)을 단순화한 모형이므로
+  측정값은 실제 실험과 조금 다를 수 있습니다.
+</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+var $=function(s,r){return (r||document).querySelector(s);};
+var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));};
+var K={VBE:0.7,BETA:150,VCESAT:0.2,VF:1.8,ION:0.4};
+var RES=[100,220,330,470,1000,2200,4700,10000,22000,47000,100000];
+var CAPS=[0.1,0.47,1,4.7,10,47,100,220,470];
+var FREQ2=[0.5,1,2,5];
+var FREQ3=[200,330,500,800,1200];
+var WAVES=[{id:"sine",n:"사인파"},{id:"square",n:"사각파"},{id:"tri",n:"삼각파"},{id:"dc",n:"직류"}];
+
+function fmtR(r){return r>=1000?(r/1000)+" kΩ":r+" Ω";}
+function fmtC(c){return (c<1?c:c)+" µF";}
+function clamp(v,a,b){return v<a?a:(v>b?b:v);}
+function round(v,n){var p=Math.pow(10,n);return Math.round(v*p)/p;}
+
+var S={
+  e1:{mode:"pre",on:false,v:0,Rb:22000,Rc:330,cells:4,flagged:false,recPre:null,recTr:null},
+  e2:{wave:0,freq:1,amp:1.5,auto:true,Rb:22000,Rc:330,cells:4,vtr:0.7,
+      running:false,t0:0,data:[],maxIn:null,maxOut:null,cursor:false,zoom:false},
+  e3:{mode:"direct",src:"fg",on:false,freq:500,amp:0.1,vol:5,cap:220,r1:1000,r22:22000,cells:4}
+};
+
+/* ── 공용 스테퍼 ───────────────────────── */
+function idxCtl(list,get,set,fmt){
+  return {get:function(){return fmt(get());},step:function(d){
+    var i=list.indexOf(get()); if(i<0)i=0;
+    set(list[clamp(i+d,0,list.length-1)]);
+  }};
+}
+var CTL={
+  "e1.v":{get:function(){return S.e1.v.toFixed(1)+" V";},step:function(d){
+      if(!S.e1.on&&d>0)S.e1.on=true;
+      S.e1.v=clamp(round(S.e1.v+d*0.1,1),0,5);}},
+  "e1.Rb":idxCtl(RES,function(){return S.e1.Rb;},function(v){S.e1.Rb=v;},fmtR),
+  "e1.Rc":idxCtl(RES,function(){return S.e1.Rc;},function(v){S.e1.Rc=v;},fmtR),
+  "e1.cells":{get:function(){return (S.e1.cells*1.5).toFixed(1)+" V";},step:function(d){S.e1.cells=clamp(S.e1.cells+d,1,8);}},
+  "e2.wave":{get:function(){return WAVES[S.e2.wave].n;},step:function(d){S.e2.wave=clamp(S.e2.wave+d,0,WAVES.length-1);}},
+  "e2.freq":idxCtl(FREQ2,function(){return S.e2.freq;},function(v){S.e2.freq=v;},function(v){return v+" Hz";}),
+  "e2.amp":{get:function(){return S.e2.amp.toFixed(1)+" V";},step:function(d){S.e2.amp=clamp(round(S.e2.amp+d*0.1,1),0.1,4);}},
+  "e2.Rb":idxCtl(RES,function(){return S.e2.Rb;},function(v){S.e2.Rb=v;},fmtR),
+  "e2.Rc":idxCtl(RES,function(){return S.e2.Rc;},function(v){S.e2.Rc=v;},fmtR),
+  "e2.cells":{get:function(){return (S.e2.cells*1.5).toFixed(1)+" V";},step:function(d){S.e2.cells=clamp(S.e2.cells+d,1,8);}},
+  "e2.vtr":{get:function(){return S.e2.vtr.toFixed(1)+" V";},step:function(d){S.e2.vtr=clamp(round(S.e2.vtr+d*0.1,1),0.1,2);}},
+  "e3.freq":idxCtl(FREQ3,function(){return S.e3.freq;},function(v){S.e3.freq=v;},function(v){return v+" Hz";}),
+  "e3.amp":{get:function(){return S.e3.amp.toFixed(1)+" V";},step:function(d){S.e3.amp=clamp(round(S.e3.amp+d*0.1,1),0.1,0.9);}},
+  "e3.vol":{get:function(){return (S.e3.vol*10)+" %";},step:function(d){S.e3.vol=clamp(S.e3.vol+d,0,10);}},
+  "e3.cap":idxCtl(CAPS,function(){return S.e3.cap;},function(v){S.e3.cap=v;},fmtC),
+  "e3.r1":idxCtl(RES,function(){return S.e3.r1;},function(v){S.e3.r1=v;},fmtR),
+  "e3.r22":idxCtl(RES,function(){return S.e3.r22;},function(v){S.e3.r22=v;},fmtR),
+  "e3.cells":{get:function(){return (S.e3.cells*1.5).toFixed(1)+" V";},step:function(d){S.e3.cells=clamp(S.e3.cells+d,1,8);}}
+};
+document.addEventListener("click",function(ev){
+  var b=ev.target.closest(".stepper button"); if(!b)return;
+  var key=b.parentNode.getAttribute("data-ctl");
+  CTL[key].step(parseInt(b.getAttribute("data-d"),10));
+  renderAll();
+});
+function paintSteppers(){
+  $$(".stepper").forEach(function(s){
+    s.querySelector(".val").textContent=CTL[s.getAttribute("data-ctl")].get();
+  });
+}
+
+/* ── 탭 ────────────────────────────────── */
+$$(".tab").forEach(function(t){
+  t.addEventListener("click",function(){
+    $$(".tab").forEach(function(x){x.setAttribute("aria-selected",String(x===t));});
+    ["t1","t2","t3"].forEach(function(id){$("#"+id).classList.toggle("hidden",id!==t.getAttribute("data-tab"));});
+    if(t.getAttribute("data-tab")!=="t3")stopAudio();
+    if(t.getAttribute("data-tab")==="t2")drawGraph();
+  });
+});
+
+/* ── 실험 1 ────────────────────────────── */
+$$("[data-e1mode]").forEach(function(b){
+  b.addEventListener("click",function(){
+    S.e1.mode=b.getAttribute("data-e1mode"); S.e1.v=0; S.e1.on=false; S.e1.flagged=false; renderAll();
+  });
+});
+$("#e1-on").addEventListener("click",function(){S.e1.on=true;renderAll();});
+$("#e1-off").addEventListener("click",function(){S.e1.on=false;S.e1.v=0;S.e1.flagged=false;renderAll();});
+$("#e1-slider").addEventListener("input",function(e){S.e1.v=parseFloat(e.target.value);renderAll();});
+$("#e1-record").addEventListener("click",function(){
+  var v=S.e1.on?S.e1.v.toFixed(1):"0.0";
+  if(S.e1.mode==="pre")S.e1.recPre=v; else {S.e1.recTr=v; S.e2.vtr=clamp(round(parseFloat(v),1),0.1,2);}
+  renderAll();
+});
+$("#e1-clear").addEventListener("click",function(){S.e1.recPre=null;S.e1.recTr=null;renderAll();});
+
+function e1Model(){
+  var v=S.e1.on?S.e1.v:0, Vcc=S.e1.cells*1.5, ib=0, ic=0, on=false, bright=0;
+  if(S.e1.mode==="pre"){
+    ic=v>K.VF?(v-K.VF)/50*1000:0;           // 모듈 내부 저항 50Ω 가정, mA
+    ic=clamp(ic,0,30); on=v>=K.VF; bright=clamp((v-K.VF)/0.6,0,1);
+  }else{
+    ib=v>K.VBE?(v-K.VBE)/S.e1.Rb*1000:0;    // mA
+    var sat=Math.max(0,(Vcc-K.VF-K.VCESAT)/S.e1.Rc*1000);
+    ic=Math.min(K.BETA*ib,sat);
+    on=ic>=K.ION; bright=clamp(ic/Math.max(sat,0.001),0,1);
+  }
+  return {v:v,ib:ib,ic:ic,on:on,bright:bright,Vcc:Vcc};
+}
+function renderE1(){
+  var m=e1Model(), pre=S.e1.mode==="pre";
+  $("#svg-pre").classList.toggle("hidden",!pre);
+  $("#svg-e1").classList.toggle("hidden",pre);
+  $$("[data-e1mode]").forEach(function(b){b.setAttribute("aria-pressed",String(b.getAttribute("data-e1mode")===S.e1.mode));});
+  $("#e1-on").setAttribute("aria-pressed",String(S.e1.on));
+  $("#e1-off").setAttribute("aria-pressed",String(!S.e1.on));
+  $("#e1-slider").value=S.e1.v; $("#e1-slider").disabled=!S.e1.on;
+  var svg=pre?$("#svg-pre"):$("#svg-e1");
+  $("#svg-pre").classList.remove("live","livb"); $("#svg-e1").classList.remove("live","livb");
+  if(m.on||m.ic>0.02)svg.classList.add("live");
+  if(!pre&&m.ib>0)svg.classList.add("livb");
+  (pre?$("#pre-glow"):$("#e1-glow")).style.opacity=m.on?(0.25+0.6*m.bright):0;
+  (pre?$("#pre-rays"):$("#e1-rays")).style.opacity=m.on?1:0;
+  $("#pre-v").textContent=m.v.toFixed(1)+" V";
+  $("#e1-vin").textContent=m.v.toFixed(1)+" V";
+  $("#e1-rb").textContent=fmtR(S.e1.Rb); $("#e1-rc").textContent=fmtR(S.e1.Rc);
+  $("#e1-vcc").textContent=m.Vcc.toFixed(1)+" V";
+  $("#m1-vin").textContent=m.v.toFixed(2)+" V";
+  $("#m1-iblab").textContent=pre?"베이스 전류 (없음)":"베이스 전류";
+  $("#m1-ib").textContent=pre?"—":m.ib.toFixed(4)+" mA";
+  $("#m1-iclab").textContent=pre?"LED에 흐르는 전류":"컬렉터 전류";
+  $("#m1-ic").textContent=m.ic.toFixed(2)+" mA";
+  $("#m1-led").textContent=m.on?"켜짐":"꺼짐";
+  $("#m1-led").style.color=m.on?"var(--live)":"";
+  if(m.on&&!S.e1.flagged){S.e1.flagged=true;}
+  $("#e1-flag").classList.toggle("hidden",!(m.on&&S.e1.flagged));
+  var a=$("#rec-pre"),b=$("#rec-tr");
+  a.textContent=S.e1.recPre?S.e1.recPre:"기록 전"; a.classList.toggle("empty",!S.e1.recPre);
+  b.textContent=S.e1.recTr?S.e1.recTr:"기록 전"; b.classList.toggle("empty",!S.e1.recTr);
+}
+
+/* ── 실험 2 ────────────────────────────── */
+$("#e2-auto-on").addEventListener("click",function(){S.e2.auto=true;renderAll();});
+$("#e2-auto-off").addEventListener("click",function(){S.e2.auto=false;renderAll();});
+$("#e2-cursor").addEventListener("click",function(){S.e2.cursor=!S.e2.cursor;renderAll();});
+$("#e2-zoom").addEventListener("click",function(){S.e2.zoom=!S.e2.zoom;renderAll();});
+$("#e2-run").addEventListener("click",function(){
+  if(S.e2.running){stopRun();return;}
+  S.e2.running=true;S.e2.data=[];S.e2.maxIn=null;S.e2.maxOut=null;S.e2.t0=performance.now();
+  renderAll(); requestAnimationFrame(runStep);
+});
+function stopRun(){S.e2.running=false;renderAll();}
+function vinAt(t){
+  var A=S.e2.amp,w=WAVES[S.e2.wave].id,p=t*S.e2.freq;
+  if(w==="dc")return A;
+  if(w==="sine")return A*Math.sin(2*Math.PI*p);
+  if(w==="square")return (p%1)<0.5?A:-A;
+  var x=(p%1); return A*(x<0.25?x*4:(x<0.75?2-4*x:4*x-4));
+}
+function voutOf(vin){
+  var Vcc=S.e2.cells*1.5;
+  var ib=vin>S.e2.vtr?(vin-S.e2.vtr)/S.e2.Rb*1000:0;
+  var sat=Math.max(0,(Vcc-K.VCESAT)/S.e2.Rc*1000);
+  var ic=Math.min(K.BETA*ib,sat);
+  return ic*S.e2.Rc/1000;
+}
+function runStep(now){
+  if(!S.e2.running)return;
+  var t=(now-S.e2.t0)/1000;
+  if(t>3.3){S.e2.running=false;renderAll();return;}
+  var vin=vinAt(t),vout=voutOf(vin);
+  S.e2.data.push({t:t,i:vin,o:vout});
+  if(S.e2.maxIn===null||vin>S.e2.maxIn)S.e2.maxIn=vin;
+  if(S.e2.maxOut===null||vout>S.e2.maxOut)S.e2.maxOut=vout;
+  $("#e2-sense").textContent=vout.toFixed(2)+" V";
+  $("#e2-vin").textContent=vin.toFixed(2)+" V";
+  $("#svg-e2").classList.toggle("live",vout>0.05);
+  $("#svg-e2").classList.toggle("livb",vin>S.e2.vtr);
+  drawGraph();
+  requestAnimationFrame(runStep);
+}
+function drawGraph(){
+  var cv=$("#graph"),ctx=cv.getContext("2d");
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  var w=cv.clientWidth||600,h=260;
+  if(cv.width!==Math.round(w*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  var cs=getComputedStyle(document.documentElement);
+  var line=cs.getPropertyValue("--line").trim()||"#ccc";
+  var soft=cs.getPropertyValue("--ink-soft").trim()||"#666";
+  var cin=cs.getPropertyValue("--sig-in").trim(),cout=cs.getPropertyValue("--sig-out").trim();
+  ctx.clearRect(0,0,w,h);
+  var L=40,R=12,T=14,B=26,pw=w-L-R,ph=h-T-B;
+  var tMax=S.e2.zoom?(1/S.e2.freq):3.3;
+  var vmax=Math.max(S.e2.amp,voutOf(S.e2.amp),1)*1.15, vmin=-vmax;
+  var X=function(t){return L+t/tMax*pw;}, Y=function(v){return T+(vmax-v)/(vmax-vmin)*ph;};
+  ctx.strokeStyle=line;ctx.lineWidth=1;ctx.font="11px sans-serif";ctx.fillStyle=soft;
+  for(var g=-Math.ceil(vmax);g<=Math.ceil(vmax);g++){
+    if(g<vmin||g>vmax)continue;
+    var y=Y(g);ctx.globalAlpha=g===0?1:.45;ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(L+pw,y);ctx.stroke();
+    ctx.globalAlpha=1;ctx.textAlign="right";ctx.fillText(g+" V",L-6,y+4);
+  }
+  ctx.textAlign="center";
+  for(var s=0;s<=tMax+0.001;s+=(tMax>2?0.5:tMax/4)){
+    var x=X(s);ctx.globalAlpha=.35;ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,T+ph);ctx.stroke();ctx.globalAlpha=1;
+    ctx.fillText(s.toFixed(1)+"s",x,h-8);
+  }
+  var d=S.e2.data.filter(function(p){return p.t<=tMax;});
+  if(!d.length){ctx.fillStyle=soft;ctx.textAlign="center";
+    ctx.fillText("측정 시작 버튼을 누르면 3초 동안 그래프가 그려집니다",L+pw/2,T+ph/2);return;}
+  [["i",cin],["o",cout]].forEach(function(pair){
+    ctx.strokeStyle=pair[1];ctx.lineWidth=2.4;ctx.beginPath();
+    d.forEach(function(p,i){var x=X(p.t),y=Y(p[pair[0]]);if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y);});
+    ctx.stroke();
+  });
+  if(S.e2.cursor&&S.e2.maxIn!==null){
+    [[S.e2.maxIn,cin],[S.e2.maxOut,cout]].forEach(function(pair){
+      var best=null;
+      d.forEach(function(p){var v=(pair[1]===cin?p.i:p.o);if(best===null||v>best.v)best={t:p.t,v:v};});
+      if(!best)return;
+      var x=X(best.t),y=Y(best.v);
+      ctx.fillStyle=pair[1];ctx.beginPath();ctx.arc(x,y,4,0,7);ctx.fill();
+      var label=best.v.toFixed(3),tw=ctx.measureText(label).width+12;
+      ctx.globalAlpha=.95;ctx.fillRect(clamp(x-tw/2,L,L+pw-tw),y-26,tw,18);ctx.globalAlpha=1;
+      ctx.fillStyle="#fff";ctx.textAlign="center";ctx.font="bold 11px sans-serif";
+      ctx.fillText(label,clamp(x,L+tw/2,L+pw-tw/2),y-13);ctx.font="11px sans-serif";
+    });
+  }
+}
+$("#e2-calc").addEventListener("click",function(){
+  if(S.e2.maxIn===null){$("#e2-formula").textContent="먼저 측정 시작 버튼을 눌러 데이터를 얻으세요.";return;}
+  var vtr=S.e2.vtr,ib=Math.max(0,(S.e2.maxIn-vtr)/(S.e2.Rb/1000)),ic=S.e2.maxOut/(S.e2.Rc/1000);
+  set("#r2-ib",ib.toFixed(4)); set("#r2-ic",ic.toFixed(2));
+  set("#r2-beta",ib>0?Math.round(ic/ib)+" 배":"—");
+});
+function set(sel,txt){var el=$(sel);el.textContent=txt;el.classList.remove("empty");}
+function renderE2(){
+  $("#e2-auto-on").setAttribute("aria-pressed",String(S.e2.auto));
+  $("#e2-auto-off").setAttribute("aria-pressed",String(!S.e2.auto));
+  $("#e2-run").textContent=S.e2.running?"측정 중지":"측정 시작";
+  $("#e2-cursor").setAttribute("aria-pressed",String(S.e2.cursor));
+  $("#e2-zoom").setAttribute("aria-pressed",String(S.e2.zoom));
+  $("#e2-zoom").textContent=S.e2.zoom?"전체 구간 보기":"사인파 1개만 보기";
+  $("#e2-rb").textContent=fmtR(S.e2.Rb); $("#e2-rc").textContent=fmtR(S.e2.Rc);
+  $("#e2-vcc").textContent=(S.e2.cells*1.5).toFixed(1)+" V";
+  $("#r2-vtr").textContent=S.e2.vtr.toFixed(1);
+  $("#e2-formula").textContent="베이스 전류(mA) = (최대 입력 전압 − 작동 전압) ÷ "+(S.e2.Rb/1000)+
+    " kΩ · 컬렉터 전류(mA) = 최대 출력 전압 ÷ "+(S.e2.Rc/1000)+" kΩ · 전류 증폭률 = 컬렉터 전류 ÷ 베이스 전류";
+  if(S.e2.maxIn!==null){set("#r2-vin",S.e2.maxIn.toFixed(3));set("#r2-vout",S.e2.maxOut.toFixed(3));}
+  else{["#r2-vin","#r2-vout"].forEach(function(s){$(s).textContent="측정 전";$(s).classList.add("empty");});}
+  if(!S.e2.running){
+    $("#svg-e2").classList.remove("live","livb");
+    $("#e2-sense").textContent="0.00 V";$("#e2-vin").textContent="0.00 V";
+  }
+  drawGraph();
+}
+window.addEventListener("resize",function(){drawGraph();});
+
+/* ── 추가 실험: 소리 ───────────────────── */
+var AC=null,G={},music=null,analyser=null,rafId=0;
+function e3Model(){
+  var Vcc=S.e3.cells*1.5, amp=S.e3.amp;
+  if(S.e3.mode==="direct")return {gain:1,out:amp,clip:0,db:0,Vcc:Vcc};
+  var g=7*(1000/S.e3.r1)*(Vcc/6);
+  g*= (S.e3.r22/(S.e3.r22+2200))/(22000/(22000+2200));
+  g=clamp(g,0.2,20);
+  var head=Vcc/2, raw=amp*g, out=Math.min(raw,head);
+  return {gain:g,out:out,clip:Math.max(0,raw/head-1),db:20*Math.log10(out/amp),Vcc:Vcc};
+}
+function ensureAudio(){
+  if(!AC){
+    var C=window.AudioContext||window.webkitAudioContext; if(!C)return null;
+    AC=new C();
+    G.src=AC.createGain(); G.hp=AC.createBiquadFilter(); G.hp.type="highpass";
+    G.shaper=AC.createWaveShaper(); G.out=AC.createGain(); G.master=AC.createGain();
+    analyser=AC.createAnalyser(); analyser.fftSize=1024;
+    G.src.connect(G.hp); G.hp.connect(G.shaper); G.shaper.connect(G.out);
+    G.out.connect(G.master); G.master.connect(analyser); analyser.connect(AC.destination);
+    G.master.gain.value=0;
+  }
+  if(AC.state==="suspended")AC.resume();
+  return AC;
+}
+function curve(k){
+  var n=1024,c=new Float32Array(n),d=1+k*12;
+  for(var i=0;i<n;i++){var x=i*2/n-1;c[i]=Math.tanh(x*d)/Math.tanh(d||1);}
+  return c;
+}
+function applyAudio(){
+  if(!AC)return;
+  var m=e3Model(),now=AC.currentTime;
+  var lvl=S.e3.mode==="direct"?(S.e3.amp/0.9)*0.05:clamp(m.out/(m.Vcc/2),0,1)*0.5;
+  G.out.gain.setTargetAtTime(1,now,0.02);
+  G.master.gain.setTargetAtTime(S.e3.on?lvl*(S.e3.vol/10):0,now,0.03);
+  G.shaper.curve=curve(S.e3.mode==="direct"?0:clamp(m.clip,0,1));
+  var fc=S.e3.mode==="direct"?10:clamp(1/(2*Math.PI*(S.e3.cap*1e-6)*1000),1,8000);
+  G.hp.frequency.setTargetAtTime(fc,now,0.05);
+  if(osc)osc.frequency.setTargetAtTime(S.e3.freq,now,0.02);
+}
+var osc=null,seqTimer=null,seqStep=0,seqNext=0;
+var MEL=[0,4,7,4,5,9,7,-1,12,11,9,7,5,4,2,-1];
+function startAudio(){
+  if(!ensureAudio())return;
+  stopSources();
+  if(S.e3.src==="fg"){
+    osc=AC.createOscillator(); osc.type="sine"; osc.frequency.value=S.e3.freq;
+    var g=AC.createGain(); g.gain.value=0.9; osc.connect(g); g.connect(G.src); osc.start();
+  }else{
+    seqStep=0; seqNext=AC.currentTime+0.05;
+    seqTimer=setInterval(schedule,60); schedule();
+  }
+  applyAudio();
+}
+function schedule(){
+  if(!AC||S.e3.src!=="music"||!S.e3.on)return;
+  while(seqNext<AC.currentTime+0.3){
+    var n=MEL[seqStep%MEL.length],dur=0.38;
+    if(n>=0){
+      var f=261.63*Math.pow(2,n/12);
+      voice(f,seqNext,dur,"triangle",0.55);
+      if(seqStep%4===0)voice(f/4,seqNext,dur*1.6,"sine",0.5);
+    }
+    seqNext+=dur; seqStep++;
+  }
+}
+function voice(f,t,d,type,vol){
+  var o=AC.createOscillator(),g=AC.createGain();
+  o.type=type;o.frequency.value=f;
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(vol,t+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(G.src);o.start(t);o.stop(t+d+0.05);
+}
+function stopSources(){
+  if(osc){try{osc.stop();}catch(e){} osc.disconnect();osc=null;}
+  if(seqTimer){clearInterval(seqTimer);seqTimer=null;}
+}
+function stopAudio(){
+  S.e3.on=false; stopSources();
+  if(AC)G.master.gain.setTargetAtTime(0,AC.currentTime,0.02);
+  if(rafId){cancelAnimationFrame(rafId);rafId=0;}
+  $("#vu-bar").style.width="0%";
+  var ca=$("#cone-a"),cb=$("#cone-b");
+  if(ca)ca.setAttribute("transform","translate(70,100)");
+  if(cb)cb.setAttribute("transform","translate(278,55)");
+  $("#wave-a").style.opacity=0; $("#wave-b").style.opacity=0;
+  renderE3();
+}
+$("#e3-on").addEventListener("click",function(){S.e3.on=true;startAudio();meterLoop();renderAll();});
+$("#e3-off").addEventListener("click",function(){stopAudio();});
+$$("[data-e3mode]").forEach(function(b){
+  b.addEventListener("click",function(){S.e3.mode=b.getAttribute("data-e3mode");applyAudio();renderAll();});
+});
+$$("[data-e3src]").forEach(function(b){
+  b.addEventListener("click",function(){
+    S.e3.src=b.getAttribute("data-e3src");
+    if(S.e3.on)startAudio(); renderAll();
+  });
+});
+function meterLoop(){
+  if(!analyser||!S.e3.on){$("#vu-bar").style.width="0%";return;}
+  var buf=new Uint8Array(analyser.fftSize); analyser.getByteTimeDomainData(buf);
+  var sum=0; for(var i=0;i<buf.length;i++){var v=(buf[i]-128)/128;sum+=v*v;}
+  var rms=Math.sqrt(sum/buf.length);
+  var pct=clamp(rms*260,0,100);
+  $("#vu-bar").style.width=pct+"%";
+  var sc=1+rms*1.6;
+  var cone=S.e3.mode==="direct"?$("#cone-a"):$("#cone-b");
+  if(cone)cone.setAttribute("transform","translate("+(S.e3.mode==="direct"?"70,100":"278,55")+") scale("+(1+rms*0.5)+",1)");
+  var wv=S.e3.mode==="direct"?$("#wave-a"):$("#wave-b");
+  if(wv)wv.style.opacity=clamp(rms*4,0,1);
+  rafId=requestAnimationFrame(meterLoop);
+}
+function renderE3(){
+  var m=e3Model(),dir=S.e3.mode==="direct";
+  $("#svg-e3a").classList.toggle("hidden",!dir);
+  $("#svg-e3b").classList.toggle("hidden",dir);
+  $$("[data-e3mode]").forEach(function(b){b.setAttribute("aria-pressed",String(b.getAttribute("data-e3mode")===S.e3.mode));});
+  $$("[data-e3src]").forEach(function(b){b.setAttribute("aria-pressed",String(b.getAttribute("data-e3src")===S.e3.src));});
+  $("#row-freq").classList.toggle("hidden",S.e3.src!=="fg");
+  $("#e3-on").setAttribute("aria-pressed",String(S.e3.on));
+  $("#e3-off").setAttribute("aria-pressed",String(!S.e3.on));
+  $("#svg-e3a").classList.toggle("live",S.e3.on&&dir);
+  $("#svg-e3b").classList.toggle("live",S.e3.on&&!dir);
+  $("#svg-e3b").classList.toggle("livb",S.e3.on&&!dir);
+  $("#e3a-amp").textContent=S.e3.amp.toFixed(1)+" V";
+  $("#e3b-amp").textContent=S.e3.amp.toFixed(1)+" V";
+  $("#e3-vcc").textContent=(S.e3.cells*1.5).toFixed(1)+" V";
+  $("#e3-cap").textContent=fmtC(S.e3.cap);
+  $("#e3-r1").textContent=fmtR(S.e3.r1);
+  $("#e3-r22").textContent=fmtR(S.e3.r22);
+  $("#m3-amp").textContent=S.e3.amp.toFixed(2)+" V";
+  $("#m3-out").textContent=m.out.toFixed(2)+" V";
+  $("#m3-gain").textContent=dir?"1.0 배":m.gain.toFixed(1)+" 배";
+  $("#m3-db").textContent=dir?"기준":"+"+m.db.toFixed(1)+" dB";
+  var note="축전기를 작게 하면 낮은 음이 먼저 사라집니다. 음악을 틀어 놓고 220 µF와 0.1 µF를 번갈아 눌러 보세요.";
+  if(!dir&&m.clip>0.05)note="출력이 건전지가 낼 수 있는 한계를 넘어 파형이 잘리고 있습니다. 소리가 거칠게 들립니다.";
+  if(!dir&&S.e3.r1>=10000)note="바이어스 저항이 너무 커서 베이스에 흐르는 전류가 부족합니다. 소리가 작고 일그러집니다.";
+  $("#e3-note").textContent=note;
+  if(AC)applyAudio();
+}
+
+function renderAll(){paintSteppers();renderE1();renderE2();renderE3();}
+renderAll();
+})();
+</script>
+</body>
+</html>
